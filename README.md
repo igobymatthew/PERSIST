@@ -278,6 +278,11 @@ The original framework is excellent but computationally heavy. Here are the key 
  * Change 4: Learn Viability from Safe Demonstrations.
    * The framework's method for learning the viability boundary relies on observing failures or near-failures. A safer and often more effective approach is to use Imitation Learning from demonstrations. By showing the agent examples of an expert operating safely, the ViabilityApproximator can learn the safe operating region without the agent ever needing to risk a catastrophic failure.
 
-
-
-
+***
+### Progress Updates
+*   **2025-09-26 12:23:24.130399**: Completed Phase 2 of the implementation plan by integrating a surprise-based intrinsic reward.
+    *   Created a `WorldModel` component (`components/world_model.py`) using PyTorch to predict the next observation.
+    *   The prediction error (MSE) of the `WorldModel` is used as the surprise reward (`r_intr`).
+    *   The main training loop (`train.py`) was updated to initialize and train the `WorldModel`.
+    *   The total reward was updated to `r_total = r_task + lambda_H * r_homeo + lambda_I * r_intr`.
+    *   Added `torch` and `pyyaml` to `requirements.txt`.

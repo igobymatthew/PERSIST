@@ -292,3 +292,7 @@ The original framework is excellent but computationally heavy. Here are the key 
     *   Created a `Shield` (`components/shield.py`) to filter unsafe actions.
     *   Updated the `ReplayBuffer` to store internal states and viability labels.
     *   Integrated all new components into the main training loop (`train.py`), which now uses the shield to select safe actions and trains the new models.
+*   **2025-09-26 15:17:41.792207**: Implemented "Change 2" from the modernization plan by replacing the surprise-based intrinsic reward with Random Network Distillation (RND).
+    *   Created an `RND` component (`components/rnd.py`) that calculates intrinsic reward based on the prediction error of a randomly initialized target network.
+    *   Updated the main training loop (`train.py`) to use the `RND` component for intrinsic motivation.
+    *   Modified `config.yaml` to allow selecting `"rnd"` as the intrinsic reward type.

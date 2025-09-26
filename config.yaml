@@ -16,7 +16,7 @@ viability:
 rewards:
   lambda_homeo: 0.7
   lambda_intr:  0.3
-  intrinsic: "empowerment"  # or "surprise"
+  intrinsic: "rnd"  # or "surprise"
 train:
   algo: "SAC"        # or PPO/TD3
   batch_size: 1024

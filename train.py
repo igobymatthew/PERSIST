@@ -8,6 +8,7 @@ from components.replay_buffer import ReplayBuffer
 from components.world_model import WorldModel
 from components.internal_model import InternalModel
 from components.viability_approximator import ViabilityApproximator
+from components.rnd import RND
 from components.shield import Shield
 
 def main():
@@ -45,6 +46,12 @@ def main():
         act_dim=env.action_dim
     )
     print("✅ World model initialized.")
+
+    # Initialize RND component if specified in config
+    if config['rewards']['intrinsic'] == 'rnd':
+        print("\nInitializing RND module...")
+        rnd_model = RND(obs_dim=env.observation_space_dim)
+        print("✅ RND module initialized.")
 
     print("\nInitializing internal model...")
     internal_model = InternalModel(
@@ -110,7 +117,10 @@ def main():
 
             # Calculate rewards
             homeo_reward = homeostat.reward(next_internal_state)
-            intr_reward = world_model.compute_surprise_reward(obs, safe_action, next_obs)
+            if config['rewards']['intrinsic'] == 'rnd':
+                intr_reward = rnd_model.compute_intrinsic_reward(obs)
+            else: # Fallback to surprise
+                intr_reward = world_model.compute_surprise_reward(obs, safe_action, next_obs)
             total_reward = task_reward + lambda_homeo * homeo_reward + lambda_intr * intr_reward
 
             # Store experience
@@ -131,6 +141,9 @@ def main():
                     batch = replay_buffer.sample_batch(batch_size)
                     # Update world model
                     world_model.train_model(batch['obs'], batch['action'], batch['next_obs'])
+                    # Update RND model if active
+                    if config['rewards']['intrinsic'] == 'rnd':
+                        rnd_model.train_predictor(batch['obs'])
                     # Update internal model
                     internal_model.train_model(batch['internal_state'], batch['action'], batch['next_internal_state'])
                     # Update viability approximator

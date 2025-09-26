@@ -1,5 +1,16 @@
 import numpy as np
 
+# A simple mock for gym.spaces.Box to avoid adding a new dependency
+class MockActionSpace:
+    def __init__(self, low, high, shape, dtype=np.float32):
+        self.low = np.full(shape, low, dtype=dtype)
+        self.high = np.full(shape, high, dtype=dtype)
+        self.shape = shape
+        self.dtype = dtype
+
+    def sample(self):
+        return np.random.uniform(low=self.low, high=self.high, size=self.shape).astype(self.dtype)
+
 class GridLifeEnv:
     def __init__(self, config):
         self.config = config
@@ -15,6 +26,7 @@ class GridLifeEnv:
 
         self.action_dim = 2
         self.act_limit = 1.0
+        self.action_space = MockActionSpace(low=-self.act_limit, high=self.act_limit, shape=(self.action_dim,))
         self.observation_space_dim = self.grid_size[0] * self.grid_size[1] + len(self.internal_state)
 
     def _place_randomly(self):

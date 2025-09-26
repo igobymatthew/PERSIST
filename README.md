@@ -286,3 +286,9 @@ The original framework is excellent but computationally heavy. Here are the key 
     *   The main training loop (`train.py`) was updated to initialize and train the `WorldModel`.
     *   The total reward was updated to `r_total = r_task + lambda_H * r_homeo + lambda_I * r_intr`.
     *   Added `torch` and `pyyaml` to `requirements.txt`.
+*   **2025-09-26 14:54:16.787780**: Completed Phase 3 of the implementation plan by integrating the Viability Shield.
+    *   Created an `InternalModel` (`components/internal_model.py`) to predict the next internal state.
+    *   Created a `ViabilityApproximator` (`components/viability_approximator.py`) to predict the safety of a state.
+    *   Created a `Shield` (`components/shield.py`) to filter unsafe actions.
+    *   Updated the `ReplayBuffer` to store internal states and viability labels.
+    *   Integrated all new components into the main training loop (`train.py`), which now uses the shield to select safe actions and trains the new models.

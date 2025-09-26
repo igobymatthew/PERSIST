@@ -4,34 +4,66 @@ import numpy as np
 from environments.grid_life import GridLifeEnv
 from agents.persist_agent import PersistAgent
 from components.homeostat import Homeostat
+from components.replay_buffer import ReplayBuffer
 
 def main():
+    print("--- Starting Training Script ---")
     # Load configuration
+    print("Loading configuration...")
     with open("config.yaml", 'r') as f:
         config = yaml.safe_load(f)
+    print("✅ Configuration loaded.")
 
     # Initialize components
+    print("\nInitializing environment...")
     env = GridLifeEnv(config)
-    agent = PersistAgent(action_space=env.action_space)
+    print("✅ Environment initialized.")
+
+    print("\nInitializing agent...")
+    agent = PersistAgent(
+        obs_dim=env.observation_space_dim,
+        act_dim=env.action_dim,
+        act_limit=env.act_limit
+    )
+    print("✅ Agent initialized.")
+
+    print("\nInitializing homeostat...")
     homeostat = Homeostat(
         mu=config['internal_state']['mu'],
         w=config['internal_state']['w']
     )
+    print("✅ Homeostat initialized.")
+
+    print("\nInitializing replay buffer...")
+    replay_buffer = ReplayBuffer(
+        capacity=10000,
+        obs_dim=env.observation_space_dim,
+        action_dim=env.action_dim
+    )
+    print("✅ Replay buffer initialized.")
+
+    print("\n--- ✅ All Components Initialized ---")
 
     lambda_homeo = config['rewards']['lambda_homeo']
+    batch_size = config['train']['batch_size']
+    update_every = config['train']['update_every']
+    total_steps = 0
 
     # Training loop
-    num_episodes = 10
+    num_episodes = 500
     for episode in range(num_episodes):
         obs = env.reset()
         done = False
         total_task_reward = 0
         total_homeo_reward = 0
-        step = 0
+        ep_len = 0
 
-        while not done and step < config['env']['horizon']:
+        while not done and ep_len < config['env']['horizon']:
             # Agent takes an action
-            action = agent.step(obs)
+            if total_steps > batch_size:
+                action = agent.step(obs)
+            else:
+                action = np.random.rand(env.action_dim) * 2 - 1
 
             # Environment steps
             next_obs, task_reward, done, _ = env.step(action)
@@ -42,17 +74,27 @@ def main():
             # Calculate homeostatic reward
             homeo_reward = homeostat.reward(internal_state)
 
-            # Calculate total reward (for this phase, we ignore intrinsic reward)
+            # Calculate total reward
             total_reward = task_reward + lambda_homeo * homeo_reward
+
+            # Store experience
+            replay_buffer.store(obs, action, total_reward, next_obs, done)
 
             total_task_reward += task_reward
             total_homeo_reward += homeo_reward
 
             obs = next_obs
-            step += 1
+            ep_len += 1
+            total_steps += 1
+
+            # Update agent
+            if total_steps % update_every == 0 and len(replay_buffer) > batch_size:
+                for _ in range(update_every):
+                    batch = replay_buffer.sample_batch(batch_size)
+                    agent.learn(data=batch)
 
         print(f"Episode {episode + 1}:")
-        print(f"  Steps = {step}")
+        print(f"  Steps = {ep_len}")
         print(f"  Total Task Reward = {total_task_reward:.2f}")
         print(f"  Total Homeostatic Reward = {total_homeo_reward:.2f}")
         print("-" * 20)

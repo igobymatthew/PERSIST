@@ -73,9 +73,10 @@ def test_viability_approximator_training_and_prediction():
     labels = torch.tensor([1.0, 1.0, 1.0, 0.0, 0.0, 0.0], dtype=torch.float32)
 
     # 3. Train the model
-    # Increased iterations to make test less flaky.
+    # Increased iterations and learning rate to make test less flaky.
+    approximator.optimizer = torch.optim.Adam(approximator.parameters(), lr=5e-3)
     initial_loss = approximator.train_model(states, labels)
-    for _ in range(100):
+    for _ in range(200):
         loss = approximator.train_model(states, labels)
     final_loss = loss
 

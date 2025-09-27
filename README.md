@@ -316,3 +316,9 @@ The original framework is excellent but computationally heavy. Here are the key 
     *   Added a `CurriculumScheduler` to `train.py` to gradually increase the weights of persistence rewards (`lambda_homeo`, `lambda_intr`) and tighten the environment's viability constraints over a configurable number of steps.
     *   The `GridLifeEnv` was updated to support dynamic constraint changes.
     *   Added a `curriculum` section to `config.yaml` to control the new scheduling feature.
+*   **2025-09-26 20:49:35.720744**: Implemented the "Partial Observability" extension from the roadmap.
+    *   Created a `StateEstimator` component (`components/state_estimator.py`) with a GRU network to predict the internal state from external observations.
+    *   Modified the `GridLifeEnv` to optionally hide the true internal state, simulating partial observability.
+    *   Updated `train.py` to use the `StateEstimator` when partial observability is enabled, feeding the estimated state to the agent and other components.
+    *   Enhanced the `ReplayBuffer` to support sampling of contiguous sequences required for training the recurrent estimator.
+    *   Added `state_estimator` and `partial_observability` configurations to `config.yaml`.

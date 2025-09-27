@@ -403,6 +403,10 @@ Why these matter
 
 ***
 ### Progress Updates
+*   **2025-09-27T18:00:00+00:00**: Implemented advanced safety and robustness features as outlined in the roadmap.
+    *   Added a Control Barrier Function (CBF) layer (`components/cbf_layer.py`) to provide formal safety guarantees by solving a Quadratic Program to filter actions. This includes a `DynamicsAdapter` (`components/dynamics_adapter.py`) for linearizing the internal model.
+    *   Implemented a `ConstraintManager` (`components/constraint_manager.py`) that uses dual ascent to automatically tune homeostatic penalty multipliers, enforcing a target violation rate without manual parameter tuning.
+    *   Introduced an energy-based Out-of-Distribution (OOD) detector (`components/ood_detector.py`) to identify novel states and a `SafeFallbackPolicy` (`policies/safe_fallback.py`) to ensure the agent takes a safe action when encountering them.
 *   **2025-09-27T17:31:45+00:00**: Refactored the codebase for improved modularity, maintainability, and performance.
     *   Introduced a `ComponentFactory` (`utils/factory.py`) to centralize the initialization of all framework components.
     *   Created a `Trainer` class (`utils/trainer.py`) to encapsulate the main training loop and update logic, simplifying `train.py`.

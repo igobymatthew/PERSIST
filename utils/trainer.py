@@ -34,8 +34,10 @@ class Trainer:
         total_steps = 0
 
         # Get initial lambda values
-        lambda_homeo = self.config['rewards']['lambda_homeo']
         lambda_intr = self.config['rewards']['lambda_intr']
+        # lambda_homeo is now managed by ConstraintManager if enabled
+        lambda_homeo = self.config['rewards']['lambda_homeo'] if self.constraint_manager is None else 0.0
+
 
         for episode in range(self.num_episodes):
             # Reset environment and estimator state
@@ -62,20 +64,48 @@ class Trainer:
                     obs_for_agent = external_obs
                     state_for_components = true_internal_state
 
-                # 2. Agent proposes action
-                if total_steps > self.batch_size:
-                    if isinstance(self.agent, MPCAgent):
-                        agent_input = {'obs': external_obs, 'internal': state_for_components}
-                        unsafe_action = self.agent.step(agent_input)
-                    else:
-                        unsafe_action = self.agent.step(obs_for_agent)
+                # 2. OOD Check and Action Selection
+                is_ood = False
+                if self.ood_detector:
+                    state_tensor = torch.as_tensor(state_for_components, dtype=torch.float32, device=self.device).unsqueeze(0)
+                    if self.ood_detector.is_ood(state_tensor).any():
+                        is_ood = True
+
+                if is_ood:
+                    # If OOD, use the fallback policy and bypass the agent and shield.
+                    # The action is considered safe by definition.
+                    safe_action = self.safe_fallback_policy.get_action().squeeze(0).cpu().numpy()
+                    # For replay buffer consistency, we can set unsafe_action to the same.
+                    unsafe_action = safe_action
                 else:
-                    unsafe_action = self.env.action_space.sample()
+                    # If not OOD, proceed with the normal agent and shield pipeline.
+                    if total_steps > self.batch_size:
+                        if isinstance(self.agent, MPCAgent):
+                            agent_input = {'obs': external_obs, 'internal': state_for_components}
+                            unsafe_action = self.agent.step(agent_input)
+                        else:
+                            unsafe_action = self.agent.step(obs_for_agent)
+                    else:
+                        unsafe_action = self.env.action_space.sample()
 
-                # 3. Shield projects action
-                safe_action = self.shield.project(state_for_components, unsafe_action)
+                    # 3. Shield projects action
+                    shielded_action = self.shield.project(state_for_components, unsafe_action)
 
-                # 4. Environment steps
+                    # 4. CBF layer provides final safety guarantee
+                    if self.cbf_layer:
+                        state_tensor = torch.as_tensor(state_for_components, dtype=torch.float32, device=self.device)
+                        action_tensor = torch.as_tensor(shielded_action, dtype=torch.float32, device=self.device)
+
+                        # Get linearized dynamics from the adapter
+                        linearized_dynamics = self.dynamics_adapter.get_linearized_dynamics(state_tensor, action_tensor)
+
+                        # Pass through CBF layer to get final action
+                        cbf_safe_action_tensor = self.cbf_layer(action_tensor, state_tensor, linearized_dynamics)
+                        safe_action = cbf_safe_action_tensor.cpu().detach().numpy()
+                    else:
+                        safe_action = shielded_action
+
+                # 5. Environment steps
                 next_external_obs, task_reward, done, info = self.env.step(safe_action)
 
                 # 5. Get true next internal state
@@ -96,19 +126,37 @@ class Trainer:
                     next_estimator_hidden_state = None
 
                 # 7. Calculate rewards
-                homeo_reward = self.homeostat.reward(estimated_next_internal_state.cpu().detach().numpy())
+                homeo_reward = self.homeostat.reward(estimated_next_internal_state.cpu().detach().numpy()) # For logging
                 intr_reward = self._calculate_intrinsic_reward(external_obs, safe_action, next_external_obs)
-                total_reward = task_reward + lambda_homeo * homeo_reward + lambda_intr * intr_reward
+
+                # The total reward for the agent's learning signal
+                total_reward = task_reward + lambda_intr * intr_reward
+
+                if self.constraint_manager:
+                    # Use adaptive penalties from the manager instead of a fixed lambda
+                    adaptive_penalty = self.constraint_manager.get_penalties(
+                        estimated_next_internal_state,
+                        torch.tensor(self.homeostat.mu, device=self.device),
+                        torch.tensor(self.homeostat.w, device=self.device)
+                    )
+                    total_reward -= adaptive_penalty.item()
+                    # For logging, we still want to know the "base" homeo reward
+                    total_homeo_reward += homeo_reward
+                else:
+                    # Use the fixed lambda if manager is disabled
+                    total_reward += lambda_homeo * homeo_reward
+                    total_homeo_reward += homeo_reward
+
 
                 if self.meta_learner:
                     self.meta_learner.step(total_reward, true_next_internal_state)
 
                 # 8. Store experience
                 viability_label = 1.0 if not (done and info.get('violation', False)) else 0.0
-                self.replay_buffer.store(external_obs, safe_action, unsafe_action, total_reward, next_external_obs, done, true_internal_state, true_next_internal_state, viability_label)
+                violations = info.get('internal_state_violation', np.zeros(self.env.internal_dim))
+                self.replay_buffer.store(external_obs, safe_action, unsafe_action, total_reward, next_external_obs, done, true_internal_state, true_next_internal_state, viability_label, violations)
 
                 total_task_reward += task_reward
-                total_homeo_reward += homeo_reward
                 total_intr_reward += intr_reward
 
                 # 9. Update states
@@ -215,12 +263,18 @@ class Trainer:
         flat_act = act_seq.reshape(-1, self.env.action_dim)
         flat_unsafe_act = unsafe_act_seq.reshape(-1, self.env.action_dim)
         flat_viability_label = viability_label_seq.reshape(-1)
+        violations_seq = seq_batch['violations_seq']
+        flat_violations = violations_seq.reshape(-1, self.env.internal_dim)
+
 
         self.internal_model.train_model(flat_est_internal, flat_act, flat_true_next_internal)
 
         if self.demonstration_buffer and len(self.demonstration_buffer) > 0:
             self.viability_approximator.train_on_demonstrations(self.demonstration_buffer, self.batch_size)
         self.viability_approximator.train_model(flat_est_internal, flat_viability_label)
+
+        if self.constraint_manager:
+            self.constraint_manager.update(flat_violations)
 
         self.safety_network.train_network(
             unsafe_actions=flat_unsafe_act,

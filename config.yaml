@@ -87,3 +87,18 @@ mpc:
   num_candidates: 1000
   top_k: 100
   iterations: 10
+
+safety:
+  cbf:
+    enabled: false # Set to true to enable the CBF safety layer
+    relax_penalty: 10.0
+    delta: 1.0
+  chance_constraint:
+    enabled: true
+    target_violation_rate: 0.005
+    dual_lr: 5e-4
+
+ood:
+  enabled: true
+  method: "energy"   # energy|mc_dropout|ensemble
+  threshold: -5.0

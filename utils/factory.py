@@ -1,5 +1,6 @@
 import torch
 import yaml
+import re
 
 from environments.grid_life import GridLifeEnv
 from agents.persist_agent import PersistAgent
@@ -17,6 +18,11 @@ from components.demonstration_buffer import DemonstrationBuffer
 from components.state_estimator import StateEstimator
 from components.meta_learner import MetaLearner
 from utils.evaluation import Evaluator
+from components.constraint_manager import ConstraintManager
+from components.ood_detector import OODDetector
+from policies.safe_fallback import SafeFallbackPolicy
+from components.dynamics_adapter import DynamicsAdapter
+from components.cbf_layer import CBFLayer
 
 class ComponentFactory:
     def __init__(self, config_path="config.yaml"):
@@ -194,48 +200,127 @@ class ComponentFactory:
         print("✅ Evaluator initialized.")
         return evaluator
 
-    def get_all_components(self):
-        """A helper method to create and return all components in a structured way."""
-        env = self.create_env()
+    def create_constraint_manager(self, env):
+        print("Initializing constraint manager...")
+        safety_config = self.config.get('safety', {})
+        chance_config = safety_config.get('chance_constraint', {})
+        if not (safety_config and chance_config and chance_config.get('enabled', False)):
+            print("Constraint manager is disabled in config.")
+            return None
 
-        # Models that other components depend on
+        manager = ConstraintManager(
+            num_constraints=env.internal_dim,
+            target_violation_rate=chance_config.get('target_violation_rate', 0.01),
+            dual_lr=chance_config.get('dual_lr', 5e-4),
+            device=self.device
+        )
+        print("✅ Constraint manager initialized.")
+        return manager
+
+    def create_ood_detector(self, viability_approximator):
+        print("Initializing OOD detector...")
+        ood_config = self.config.get('ood', {})
+        if not ood_config.get('enabled', False):
+            print("OOD detector is disabled in config.")
+            return None
+
+        detector = OODDetector(
+            model=viability_approximator,
+            threshold=ood_config.get('threshold', -5.0)
+        ).to(self.device)
+        print("✅ OOD detector initialized.")
+        return detector
+
+    def create_safe_fallback_policy(self, env):
+        print("Initializing safe fallback policy...")
+        policy = SafeFallbackPolicy(
+            action_dim=env.action_dim,
+            device=self.device
+        )
+        print("✅ Safe fallback policy initialized.")
+        return policy
+
+    def _parse_constraints(self):
+        constraints_config = self.config['viability']['constraints']
+        dims = self.config['internal_state']['dims']
+        dim_map = {name: i for i, name in enumerate(dims)}
+        parsed_constraints = []
+        for constr_str in constraints_config:
+            match_simple = re.match(r"(\w+)\s*([<>]=)\s*(-?[\d.]+)", constr_str)
+            match_interval = re.match(r"(\w+)\s+in\s+\[(-?[\d.]+),\s*(-?[\d.]+)\]", constr_str)
+            if match_simple:
+                var, op, val_str = match_simple.groups()
+                val = float(val_str)
+                idx = dim_map[var]
+                if op == '>=':
+                    parsed_constraints.append(lambda x, _idx=idx, _val=val: _val - x[_idx])
+                elif op == '<=':
+                    parsed_constraints.append(lambda x, _idx=idx, _val=val: x[_idx] - _val)
+            elif match_interval:
+                var, min_val_str, max_val_str = match_interval.groups()
+                min_val, max_val = float(min_val_str), float(max_val_str)
+                idx = dim_map[var]
+                parsed_constraints.append(lambda x, _idx=idx, _val=min_val: _val - x[_idx])
+                parsed_constraints.append(lambda x, _idx=idx, _val=max_val: x[_idx] - _val)
+            else:
+                raise ValueError(f"Could not parse constraint string: {constr_str}")
+        print(f"✅ Parsed {len(parsed_constraints)} CBF constraints.")
+        return parsed_constraints
+
+    def create_dynamics_adapter(self, internal_model):
+        print("Initializing dynamics adapter...")
+        adapter = DynamicsAdapter(internal_model=internal_model)
+        print("✅ Dynamics adapter initialized.")
+        return adapter
+
+    def create_cbf_layer(self, env):
+        print("Initializing CBF layer...")
+        safety_config = self.config.get('safety', {})
+        cbf_config = safety_config.get('cbf', {})
+        if not cbf_config.get('enabled', False):
+            print("CBF layer is disabled in config.")
+            return None
+        constraints = self._parse_constraints()
+        cbf_layer = CBFLayer(
+            x_dim=env.internal_dim, a_dim=env.action_dim, constraints=constraints,
+            relax_penalty=cbf_config.get('relax_penalty', 10.0),
+            delta=cbf_config.get('delta', 1.0)
+        )
+        print("✅ CBF layer initialized.")
+        return cbf_layer
+
+    def get_all_components(self):
+        env = self.create_env()
         world_model = self.create_world_model(env)
         internal_model = self.create_internal_model(env)
         viability_approximator = self.create_viability_approximator(env)
         safety_network = self.create_safety_network(env)
-
-        # Agent and other primary components
+        dynamics_adapter = self.create_dynamics_adapter(internal_model)
         agent = self.create_agent(env, world_model, internal_model, viability_approximator)
         shield = self.create_shield(env, internal_model, viability_approximator, safety_network)
-
-        # Learning and data components
+        safe_fallback_policy = self.create_safe_fallback_policy(env)
+        cbf_layer = self.create_cbf_layer(env)
         meta_learner = self.create_meta_learner()
+        constraint_manager = self.create_constraint_manager(env)
+        ood_detector = self.create_ood_detector(viability_approximator)
         homeostat = self.create_homeostat(meta_learner)
         intrinsic_module = self.create_intrinsic_reward_module(env, world_model)
         state_estimator = self.create_state_estimator(env)
-
-        # Buffers and logging
         replay_buffer = self.create_replay_buffer(env)
         demo_buffer = self.create_demonstration_buffer()
         evaluator = self.create_evaluator()
 
         components = {
-            'env': env,
-            'agent': agent,
-            'homeostat': homeostat,
-            'world_model': world_model,
-            'internal_model': internal_model,
+            'env': env, 'agent': agent, 'homeostat': homeostat,
+            'world_model': world_model, 'internal_model': internal_model,
             'viability_approximator': viability_approximator,
             'intrinsic_reward_module': intrinsic_module,
-            'safety_network': safety_network,
-            'shield': shield,
-            'replay_buffer': replay_buffer,
-            'demonstration_buffer': demo_buffer,
-            'state_estimator': state_estimator,
-            'meta_learner': meta_learner,
-            'evaluator': evaluator,
-            'device': self.device,
-            'config': self.config
+            'safety_network': safety_network, 'shield': shield,
+            'replay_buffer': replay_buffer, 'demonstration_buffer': demo_buffer,
+            'state_estimator': state_estimator, 'meta_learner': meta_learner,
+            'constraint_manager': constraint_manager, 'ood_detector': ood_detector,
+            'safe_fallback_policy': safe_fallback_policy,
+            'dynamics_adapter': dynamics_adapter, 'cbf_layer': cbf_layer,
+            'evaluator': evaluator, 'device': self.device, 'config': self.config
         }
-
         return components

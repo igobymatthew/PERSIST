@@ -18,10 +18,12 @@ class ReplayBuffer:
         self.internal_state_buf = np.zeros((capacity, internal_dim), dtype=np.float32)
         self.next_internal_state_buf = np.zeros((capacity, internal_dim), dtype=np.float32)
         self.viability_label_buf = np.zeros(capacity, dtype=np.float32)
+        self.violations_buf = np.zeros((capacity, internal_dim), dtype=np.float32)
+
 
         self.ptr, self.size = 0, 0
 
-    def store(self, obs, action, unsafe_action, reward, next_obs, done, internal_state, next_internal_state, viability_label):
+    def store(self, obs, action, unsafe_action, reward, next_obs, done, internal_state, next_internal_state, viability_label, violations):
         self.obs_buf[self.ptr] = obs
         self.next_obs_buf[self.ptr] = next_obs
         self.action_buf[self.ptr] = action
@@ -31,6 +33,7 @@ class ReplayBuffer:
         self.internal_state_buf[self.ptr] = internal_state
         self.next_internal_state_buf[self.ptr] = next_internal_state
         self.viability_label_buf[self.ptr] = viability_label
+        self.violations_buf[self.ptr] = violations
 
         self.ptr = (self.ptr + 1) % self.capacity
         self.size = min(self.size + 1, self.capacity)
@@ -58,10 +61,13 @@ class ReplayBuffer:
 
         phys_indices = (self.ptr - self.size + seq_indices) % self.capacity
 
-        batch = {
-            f"{k}_seq": torch.as_tensor(v[phys_indices], dtype=torch.float32, device=self.device)
-            for k, v in self._get_all_buffers().items()
-        }
+        # Explicitly create the batch dictionary to ensure all keys, including the
+        # recently added 'violations_seq', are included.
+        all_buffers = self._get_all_buffers()
+        batch = {}
+        for k, v in all_buffers.items():
+            batch[f"{k}_seq"] = torch.as_tensor(v[phys_indices], dtype=torch.float32, device=self.device)
+
         return batch
 
     def _get_all_buffers(self):
@@ -75,7 +81,8 @@ class ReplayBuffer:
             done=self.done_buf,
             internal_state=self.internal_state_buf,
             next_internal_state=self.next_internal_state_buf,
-            viability_label=self.viability_label_buf
+            viability_label=self.viability_label_buf,
+            violations=self.violations_buf
         )
 
     def __len__(self):

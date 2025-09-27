@@ -23,8 +23,12 @@ def main():
         }
         print("✅ Dummy data created.")
 
+        print("\nConverting data to tensors...")
+        tensor_data = {k: torch.as_tensor(v, dtype=torch.float32) for k, v in dummy_data.items()}
+        print("✅ Data converted.")
+
         print("\nRunning a single update...")
-        agent.update(dummy_data)
+        agent.update(tensor_data)
         print("✅ SAC update completed successfully.")
 
         print("\n--- ✅ Isolated SAC Test Successful! ---")

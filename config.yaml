@@ -109,6 +109,12 @@ continual:
   consolidate_every: 5000 # In steps
   rehearsal_capacity: 2000
 
+budgets:
+  enabled: false # Set to true to enable the budget meter
+  initial_budget: 1.0 # The starting budget for each episode.
+  decrement_per_step: 0.002 # The amount to decrement the budget by at each step. (1.0 / 500 steps)
+  penalty: -1.0 # The penalty applied when the budget is exhausted.
+
 population:
   ensemble_shield:
     enabled: false # Set to true to use the EnsembleShield

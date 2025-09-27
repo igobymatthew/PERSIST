@@ -26,6 +26,7 @@ from components.dynamics_adapter import DynamicsAdapter
 from components.cbf_layer import CBFLayer
 from buffers.rehearsal import RehearsalBuffer
 from components.continual import ContinualLearningManager
+from components.budget_meter import BudgetMeter
 
 class ComponentFactory:
     def __init__(self, config_path="config.yaml"):
@@ -345,6 +346,17 @@ class ComponentFactory:
         print("✅ ContinualLearningManager initialized.")
         return manager
 
+    def create_budget_meter(self):
+        budget_config = self.config.get('budgets', {})
+        if not budget_config.get('enabled', False):
+            return None
+        print("Initializing BudgetMeter...")
+        meter = BudgetMeter(
+            budget_config=budget_config
+        )
+        print("✅ BudgetMeter initialized.")
+        return meter
+
     def get_all_components(self):
         env = self.create_env()
         world_model = self.create_world_model(env)
@@ -368,9 +380,10 @@ class ComponentFactory:
         rehearsal_buffer = self.create_rehearsal_buffer()
         demo_buffer = self.create_demonstration_buffer()
         evaluator = self.create_evaluator()
+        budget_meter = self.create_budget_meter()
 
         components = {
-            'env': env, 'agent': agent, 'homeostat': homeostat,
+            'env': env, 'agent': agent, 'homeostat': homeostat, 'budget_meter': budget_meter,
             'world_model': world_model, 'internal_model': internal_model,
             'viability_approximator': viability_approximator,
             'viability_ensemble': viability_ensemble,

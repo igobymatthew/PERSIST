@@ -128,7 +128,7 @@ def test_internal_model_training_and_prediction():
 
     # 3. Train the model
     initial_loss = model.train_model(current_states, actions, next_states_true)
-    for _ in range(300): # Increased training iterations for robustness
+    for _ in range(500): # Increased training iterations for robustness to prevent flaky tests
         loss = model.train_model(current_states, actions, next_states_true)
     final_loss = loss
 
@@ -148,3 +148,43 @@ def test_internal_model_training_and_prediction():
         # The model's predict_next returns a numpy array, so we use np.allclose
         assert np.allclose(predicted_next_state, expected_next_state.numpy(), atol=0.1), \
             f"Predicted next state {predicted_next_state} is not close to expected {expected_next_state.numpy()}"
+
+from components.budget_meter import BudgetMeter
+
+def test_budget_meter():
+    """
+    Tests the functionality of the BudgetMeter component.
+    """
+    # 1. Setup
+    config = {
+        "initial_budget": 1.0,
+        "penalty": -10.0
+    }
+    budget_meter = BudgetMeter(budget_config=config)
+
+    # 2. Test initialization
+    assert budget_meter.current_budget == 1.0, "Initial budget is incorrect."
+    assert not budget_meter.is_exhausted(), "Budget should not be exhausted initially."
+
+    # 3. Test decrement
+    budget_meter.decrement(0.3)
+    assert np.isclose(budget_meter.current_budget, 0.7), "Decrement did not work as expected."
+    assert not budget_meter.is_exhausted(), "Budget should not be exhausted after a small decrement."
+
+    # 4. Test exhaustion
+    budget_meter.decrement(0.7)
+    assert np.isclose(budget_meter.current_budget, 0.0), "Budget should be zero."
+    assert budget_meter.is_exhausted(), "Budget should be exhausted when current_budget is zero."
+
+    # 5. Test penalty
+    assert budget_meter.get_penalty() == -10.0, "Penalty amount is incorrect."
+
+    # 6. Test reset
+    budget_meter.reset()
+    assert budget_meter.current_budget == 1.0, "Reset did not restore the initial budget."
+    assert not budget_meter.is_exhausted(), "Budget should not be exhausted after reset."
+
+    # 7. Test over-exhaustion
+    budget_meter.decrement(1.1)
+    assert budget_meter.current_budget < 0, "Budget should be negative after over-exhaustion."
+    assert budget_meter.is_exhausted(), "Budget should be exhausted when over-exhausted."

@@ -22,6 +22,10 @@ class Trainer:
 
         self.is_partially_observable = self.config.get('env', {}).get('partial_observability', False)
 
+        # Budget meter config
+        self.budget_config = self.config.get('budgets', {})
+        self.budget_decrement = self.budget_config.get('decrement_per_step', 0.01) if hasattr(self, 'budget_meter') and self.budget_meter else 0
+
         self.scheduler = CurriculumScheduler(self.config)
         if self.scheduler.enabled:
             print("✅ Curriculum enabled for trainer.")
@@ -43,6 +47,8 @@ class Trainer:
         for episode in range(self.num_episodes):
             # Reset environment and estimator state
             external_obs = self.env.reset()
+            if self.budget_meter:
+                self.budget_meter.reset()
 
             if not self.is_partially_observable:
                 true_internal_state = external_obs[-self.env.internal_dim:]
@@ -126,7 +132,16 @@ class Trainer:
                     estimated_next_internal_state = torch.as_tensor(true_next_internal_state, dtype=torch.float32, device=self.device)
                     next_estimator_hidden_state = None
 
-                # 7. Calculate rewards
+                # 7. Update budget and check for exhaustion
+                budget_exhausted = False
+                if self.budget_meter:
+                    self.budget_meter.decrement(self.budget_decrement)
+                    if self.budget_meter.is_exhausted():
+                        budget_exhausted = True
+                        done = True  # This will terminate the episode
+                        info['budget_exhausted'] = True
+
+                # 8. Calculate rewards
                 homeo_reward = self.homeostat.reward(estimated_next_internal_state.cpu().detach().numpy()) # For logging
                 intr_reward = self._calculate_intrinsic_reward(external_obs, safe_action, next_external_obs)
 
@@ -148,11 +163,15 @@ class Trainer:
                     total_reward += lambda_homeo * homeo_reward
                     total_homeo_reward += homeo_reward
 
+                # Add budget penalty if exhausted
+                if self.budget_meter and budget_exhausted:
+                    total_reward += self.budget_meter.get_penalty()
+
 
                 if self.meta_learner:
                     self.meta_learner.step(total_reward, true_next_internal_state)
 
-                # 8. Store experience
+                # 9. Store experience
                 viability_label = 1.0 if not (done and info.get('violation', False)) else 0.0
                 violations = info.get('internal_state_violation', np.zeros(self.env.internal_dim))
                 self.replay_buffer.store(external_obs, safe_action, unsafe_action, total_reward, next_external_obs, done, true_internal_state, true_next_internal_state, viability_label, violations)
@@ -164,7 +183,7 @@ class Trainer:
                 total_task_reward += task_reward
                 total_intr_reward += intr_reward
 
-                # 9. Update states
+                # 10. Update states
                 external_obs = next_external_obs
                 true_internal_state = true_next_internal_state
                 estimated_internal_state = estimated_next_internal_state

@@ -403,6 +403,10 @@ Why these matter
 
 ***
 ### Progress Updates
+*   **2025-09-27T12:40:00+00:00**: Implemented the "Resource Accounting / Bounded Rationality" feature.
+    *   Created a `BudgetMeter` component (`components/budget_meter.py`) to track resource consumption (e.g., energy, computation time) over an episode.
+    *   Integrated the `BudgetMeter` into the main training loop (`utils/trainer.py`), which now terminates an episode and applies a configurable penalty if the agent's budget is exhausted.
+    *   Added a `budgets` section to `config.yaml` to allow enabling and configuring this feature.
 *   **2025-09-27T12:25:30+00:00**: Implemented several key system-level features to enhance robustness and verifiability.
     *   Added a `PersistenceManager` (`systems/persistence.py`) for atomic checkpointing and a `DegradedModePolicy` (`policies/degraded_mode.py`) for safe fallbacks.
     *   Established a verification harness with property-based safety tests (`tests/spec_safety_test.py`) and a scenario fuzzer (`tools/fuzz_scenarios.py`).

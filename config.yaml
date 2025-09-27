@@ -120,3 +120,8 @@ population:
     enabled: false # Set to true to use the EnsembleShield
     ensemble_size: 3
     vote_method: "veto_if_any_unsafe" # or "majority_vote"
+
+maintenance:
+  enabled: true
+  tasks: ["refuel", "cool_down", "repair"]
+  penalty_costs: {refuel: 0.1, cool_down: 0.1, repair: 0.3}

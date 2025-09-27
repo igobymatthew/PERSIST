@@ -32,6 +32,13 @@ class GridLifeEnv:
         self.hot_pos = self._place_randomly()
         self.hazard_pos = self._place_randomly()
 
+        # Maintenance stations
+        self.maintenance_config = self.config.get('maintenance', {})
+        if self.maintenance_config.get('enabled', False):
+            self.refuel_station_pos = self._place_randomly()
+            self.cooldown_station_pos = self._place_randomly()
+            self.repair_station_pos = self._place_randomly()
+
         self.action_dim = 2
         self.act_limit = 1.0
         self.action_space = MockActionSpace(low=-self.act_limit, high=self.act_limit, shape=(self.action_dim,))
@@ -85,6 +92,11 @@ class GridLifeEnv:
         grid[self.hot_pos[0], self.hot_pos[1]] = 3
         grid[self.hazard_pos[0], self.hazard_pos[1]] = 4
 
+        if self.maintenance_config.get('enabled', False):
+            grid[self.refuel_station_pos[0], self.refuel_station_pos[1]] = 5
+            grid[self.cooldown_station_pos[0], self.cooldown_station_pos[1]] = 6
+            grid[self.repair_station_pos[0], self.repair_station_pos[1]] = 7
+
         external_obs = grid.flatten()
 
         if self.partial_observability:
@@ -112,6 +124,23 @@ class GridLifeEnv:
 
         if np.array_equal(self.agent_pos, self.hazard_pos):
             self.internal_state[2] -= 0.2
+
+        # Handle maintenance stations
+        if self.maintenance_config.get('enabled', False):
+            if np.array_equal(self.agent_pos, self.refuel_station_pos):
+                self.internal_state[0] = 1.0
+                task_reward -= self.maintenance_config.get('penalty_costs', {}).get('refuel', 0.1)
+                self.refuel_station_pos = self._place_randomly()
+
+            if np.array_equal(self.agent_pos, self.cooldown_station_pos):
+                self.internal_state[1] = self.config['internal_state']['mu'][1]
+                task_reward -= self.maintenance_config.get('penalty_costs', {}).get('cool_down', 0.1)
+                self.cooldown_station_pos = self._place_randomly()
+
+            if np.array_equal(self.agent_pos, self.repair_station_pos):
+                self.internal_state[2] = 1.0
+                task_reward -= self.maintenance_config.get('penalty_costs', {}).get('repair', 0.3)
+                self.repair_station_pos = self._place_randomly()
 
         # Check for constraint violations using dynamic constraints
         done = False

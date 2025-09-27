@@ -1,6 +1,7 @@
 env:
   name: "GridLife-v0"
   horizon: 512
+  partial_observability: true
 internal_state:
   dims: ["energy","temp","integrity"]
   mu: [0.7, 0.5, 0.9]
@@ -58,3 +59,9 @@ safety_network:
 
 demonstrations:
   filepath: "demonstrations/expert_demonstrations.npz"
+
+state_estimator:
+  hidden_dim: 128
+  n_layers: 2
+  lr: 0.001
+  sequence_length: 16

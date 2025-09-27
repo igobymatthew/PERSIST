@@ -51,5 +51,51 @@ class ReplayBuffer:
         )
         return batch
 
+    def sample_sequence_batch(self, batch_size, seq_len):
+        """
+        Samples a batch of consecutive sequences for training recurrent models.
+        This version is more robust and returns all necessary data fields.
+        """
+        start_indices = np.random.randint(0, self.size - seq_len, size=batch_size)
+
+        # Create sequence indices for each start index
+        # Shape: (batch_size, seq_len)
+        seq_indices = start_indices[:, np.newaxis] + np.arange(seq_len)
+
+        # Check for episode boundaries within each sequence (excluding the very last step)
+        # A sequence is invalid if a 'done' flag appears in the first seq_len-1 steps
+        is_valid = ~np.any(self.done_buf[seq_indices[:, :-1]], axis=1)
+
+        # Keep resampling invalid sequences until all are valid
+        while not np.all(is_valid):
+            num_invalid = batch_size - np.sum(is_valid)
+            new_starts = np.random.randint(0, self.size - seq_len, size=num_invalid)
+
+            # Get new sequence indices for the invalid entries
+            new_seq_indices = new_starts[:, np.newaxis] + np.arange(seq_len)
+
+            # Replace the old invalid indices
+            seq_indices[~is_valid] = new_seq_indices
+
+            # Re-evaluate validity
+            is_valid = ~np.any(self.done_buf[seq_indices[:, :-1]], axis=1)
+
+        # Convert logical indices to physical buffer indices
+        phys_indices = (self.ptr - self.size + seq_indices) % self.capacity
+
+        # Retrieve all necessary data sequences
+        batch = dict(
+            obs_seq=self.obs_buf[phys_indices],
+            act_seq=self.action_buf[phys_indices],
+            reward_seq=self.reward_buf[phys_indices],
+            next_obs_seq=self.next_obs_buf[phys_indices],
+            done_seq=self.done_buf[phys_indices],
+            internal_state_seq=self.internal_state_buf[phys_indices],
+            next_internal_state_seq=self.next_internal_state_buf[phys_indices],
+            unsafe_action_seq=self.unsafe_action_buf[phys_indices],
+            viability_label_seq=self.viability_label_buf[phys_indices]
+        )
+        return batch
+
     def __len__(self):
         return self.size

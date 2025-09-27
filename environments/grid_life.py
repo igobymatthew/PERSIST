@@ -19,6 +19,11 @@ class GridLifeEnv:
 
         # Internal state: energy, temp, integrity
         self.internal_state = np.array(self.config['internal_state']['mu'])
+        self.internal_dim = len(self.internal_state)
+        self.external_obs_dim = self.grid_size[0] * self.grid_size[1]
+
+        # Partial observability setting
+        self.partial_observability = self.config.get('env', {}).get('partial_observability', False)
 
         self.dim_map = {name: i for i, name in enumerate(self.config['internal_state']['dims'])}
         self.constraints = self._parse_constraints(self.config['viability']['constraints'])
@@ -30,7 +35,11 @@ class GridLifeEnv:
         self.action_dim = 2
         self.act_limit = 1.0
         self.action_space = MockActionSpace(low=-self.act_limit, high=self.act_limit, shape=(self.action_dim,))
-        self.observation_space_dim = self.grid_size[0] * self.grid_size[1] + len(self.internal_state)
+
+        if self.partial_observability:
+            self.observation_space_dim = self.external_obs_dim
+        else:
+            self.observation_space_dim = self.external_obs_dim + self.internal_dim
 
     def _parse_constraints(self, constraint_strings):
         """ Parses constraint strings from the config file into a structured format. """
@@ -75,7 +84,13 @@ class GridLifeEnv:
         grid[self.food_pos[0], self.food_pos[1]] = 2
         grid[self.hot_pos[0], self.hot_pos[1]] = 3
         grid[self.hazard_pos[0], self.hazard_pos[1]] = 4
-        return np.concatenate([grid.flatten(), self.internal_state])
+
+        external_obs = grid.flatten()
+
+        if self.partial_observability:
+            return external_obs
+        else:
+            return np.concatenate([external_obs, self.internal_state])
 
     def step(self, action):
         # Move agent
@@ -114,5 +129,9 @@ class GridLifeEnv:
             if done:
                 info['violation'] = True
                 break
+
+        # If partial observability is on, include the true internal state in the info dict
+        if self.partial_observability:
+            info['internal_state'] = self.internal_state.copy()
 
         return self._get_obs(), task_reward, done, info

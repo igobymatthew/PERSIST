@@ -80,3 +80,10 @@ meta_learning:
   enabled: true
   learning_rate: 0.01
   update_frequency: 50 # Update mu every 50 episodes
+
+mpc:
+  enabled: false # Set to true to use the MPC agent
+  horizon: 12
+  num_candidates: 1000
+  top_k: 100
+  iterations: 10

@@ -280,6 +280,11 @@ The original framework is excellent but computationally heavy. Here are the key 
 
 ***
 ### Progress Updates
+*   **2025-09-27T07:22:55+00:00**: Implemented the "Reach-avoid MPC" extension.
+    *   Created a `ReachAvoidMPC` component (`components/reach_avoid_mpc.py`) that uses model-predictive control to plan safe, goal-oriented actions.
+    *   The MPC planner uses the `LatentWorldModel`, `InternalModel`, and `ViabilityApproximator` to simulate future trajectories and select the best action sequence via the Cross-Entropy Method (CEM).
+    *   Created a new `MPCAgent` (`agents/mpc_agent.py`) to integrate the planner into the training loop.
+    *   Added an `mpc` section to `config.yaml` to enable and configure the MPC agent.
 *   **2025-09-27T14:08:18+00:00**: Implemented the "Risk-sensitive RL" extension.
     *   Created a `CVAR_SAC` agent (`agents/cvar_sac.py`) that optimizes the Conditional Value at Risk (CVaR) of the return distribution, making the agent risk-averse.
     *   Implemented a `DistributionalCritic` that learns the return distribution using quantile regression.

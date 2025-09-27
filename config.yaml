@@ -108,3 +108,9 @@ continual:
   ewc_lambda: 5.0
   consolidate_every: 5000 # In steps
   rehearsal_capacity: 2000
+
+population:
+  ensemble_shield:
+    enabled: false # Set to true to use the EnsembleShield
+    ensemble_size: 3
+    vote_method: "veto_if_any_unsafe" # or "majority_vote"

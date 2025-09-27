@@ -147,3 +147,6 @@ class SAC(nn.Module):
             for p, p_target in zip(self.critic2.parameters(), self.critic2_target.parameters()):
                 p_target.data.mul_(polyak)
                 p_target.data.add_((1 - polyak) * p.data)
+
+        # Return policy entropy for logging
+        return -logp_pi.detach().mean().item()

@@ -17,6 +17,7 @@ from components.safety_network import SafetyNetwork
 from components.demonstration_buffer import DemonstrationBuffer
 from components.state_estimator import StateEstimator
 from components.meta_learner import MetaLearner
+from utils.evaluation import Evaluator
 
 class CurriculumScheduler:
     def __init__(self, config):
@@ -223,6 +224,10 @@ def main():
     else:
         print("ℹ️ Curriculum disabled, using fixed parameters.")
 
+    print("\nInitializing evaluator...")
+    evaluator = Evaluator(log_file='training.log')
+    print("✅ Evaluator initialized.")
+
     print("\n--- ✅ All Components Initialized ---")
 
     # Get initial lambda values, which will be updated by the curriculum if enabled
@@ -249,6 +254,8 @@ def main():
 
         done = False
         ep_len, total_task_reward, total_homeo_reward, total_intr_reward = 0, 0, 0, 0
+        latest_policy_entropy = 0.0
+        info = {}  # Ensure info is defined for the end-of-episode log
 
         while not done and ep_len < config['env']['horizon']:
             # 1. Construct the full state for the agent and other components
@@ -449,15 +456,49 @@ def main():
                     agent_batch['reward'] = reward_seq[:, -1].detach().numpy()
                     agent_batch['done'] = done_seq[:, -1].detach().numpy()
 
-                    agent.learn(data=agent_batch)
+                    entropy = agent.learn(data=agent_batch)
+                    if entropy is not None:
+                        latest_policy_entropy = entropy
 
         # Handle end-of-episode updates for the meta-learner
         if meta_learner is not None:
             meta_learner.episode_end()
             homeostat.mu = meta_learner.get_setpoints()
 
+        # Log episode metrics
+        final_internal_state = true_internal_state
+        violation_occurred = done and info.get('violation', False)
+
+        # Calculate constraint satisfaction details
+        constraint_satisfaction = {}
+        for c in env.constraints:
+            val = final_internal_state[c['dim_idx']]
+            op = c['op']
+            threshold = c['val']
+            satisfied = (op == '>=' and val >= threshold) or \
+                        (op == '<=' and val <= threshold)
+            constraint_satisfaction[c['name']] = {
+                'satisfied': bool(satisfied),
+                'value': float(val),
+                'threshold': float(threshold)
+            }
+
+        episode_data = {
+            'episode': episode + 1,
+            'total_steps': total_steps,
+            'survival_steps': ep_len,
+            'task_reward': total_task_reward,
+            'homeo_reward': total_homeo_reward,
+            'intr_reward': total_intr_reward,
+            'policy_entropy': latest_policy_entropy,
+            'constraint_satisfaction': constraint_satisfaction,
+            'violation': violation_occurred
+        }
+        evaluator.log_episode(episode_data)
+
         print(f"Episode {episode + 1}: Steps = {ep_len}, Task Reward = {total_task_reward:.2f}, "
-              f"Homeo Reward = {total_homeo_reward:.2f}, Intr Reward = {total_intr_reward:.2f}")
+              f"Homeo Reward = {total_homeo_reward:.2f}, Intr Reward = {total_intr_reward:.2f}, "
+              f"Entropy = {latest_policy_entropy:.2f}, Violation = {violation_occurred}")
 
 if __name__ == "__main__":
     main()

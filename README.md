@@ -280,6 +280,11 @@ The original framework is excellent but computationally heavy. Here are the key 
 
 ***
 ### Progress Updates
+*   **2025-09-27T08:11:30+00:00**: Implemented a comprehensive evaluation and metrics logging system.
+    *   Created an `Evaluator` class in `utils/evaluation.py` to handle logging.
+    *   The system now tracks and logs key metrics from the `README.md` file, including survival time, constraint satisfaction rates, and policy entropy.
+    *   Metrics are saved to `training.log` in a structured JSON format for analysis.
+    *   The main training loop in `train.py` was updated to integrate the evaluator.
 *   **2025-09-27T07:22:55+00:00**: Implemented the "Reach-avoid MPC" extension.
     *   Created a `ReachAvoidMPC` component (`components/reach_avoid_mpc.py`) that uses model-predictive control to plan safe, goal-oriented actions.
     *   The MPC planner uses the `LatentWorldModel`, `InternalModel`, and `ViabilityApproximator` to simulate future trajectories and select the best action sequence via the Cross-Entropy Method (CEM).

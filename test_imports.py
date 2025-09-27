@@ -34,6 +34,10 @@ try:
     from agents.persist_agent import PersistAgent
     print("✅ PersistAgent imported successfully.")
 
+    print("\nImporting SafetyNetwork...")
+    from components.safety_network import SafetyNetwork
+    print("✅ SafetyNetwork imported successfully.")
+
     print("\n--- ✅ All Imports Successful! ---")
 
 except Exception as e:

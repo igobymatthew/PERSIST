@@ -6,7 +6,8 @@ class ReplayBuffer:
         # Standard RL buffers
         self.obs_buf = np.zeros((capacity, obs_dim), dtype=np.float32)
         self.next_obs_buf = np.zeros((capacity, obs_dim), dtype=np.float32)
-        self.action_buf = np.zeros((capacity, action_dim), dtype=np.float32)
+        self.action_buf = np.zeros((capacity, action_dim), dtype=np.float32) # This stores the SAFE action
+        self.unsafe_action_buf = np.zeros((capacity, action_dim), dtype=np.float32) # For the safety network
         self.reward_buf = np.zeros(capacity, dtype=np.float32)
         self.done_buf = np.zeros(capacity, dtype=np.float32)
 
@@ -17,11 +18,12 @@ class ReplayBuffer:
 
         self.ptr, self.size = 0, 0
 
-    def store(self, obs, action, reward, next_obs, done, internal_state, next_internal_state, viability_label):
+    def store(self, obs, action, unsafe_action, reward, next_obs, done, internal_state, next_internal_state, viability_label):
         # Store standard data
         self.obs_buf[self.ptr] = obs
         self.next_obs_buf[self.ptr] = next_obs
-        self.action_buf[self.ptr] = action
+        self.action_buf[self.ptr] = action # Safe action
+        self.unsafe_action_buf[self.ptr] = unsafe_action
         self.reward_buf[self.ptr] = reward
         self.done_buf[self.ptr] = done
 
@@ -38,7 +40,8 @@ class ReplayBuffer:
         batch = dict(
             obs=self.obs_buf[idxs],
             next_obs=self.next_obs_buf[idxs],
-            action=self.action_buf[idxs],
+            action=self.action_buf[idxs], # Safe action
+            unsafe_action=self.unsafe_action_buf[idxs],
             reward=self.reward_buf[idxs],
             done=self.done_buf[idxs],
             # Add persistence data to the batch

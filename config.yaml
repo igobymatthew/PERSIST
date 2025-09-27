@@ -23,3 +23,8 @@ train:
   gamma: 0.995
   update_every: 64
   model_rollouts: 5
+  amortize_after_steps: 20000 # Steps before switching to amortized shield
+
+safety_network:
+  hidden_dim: 128
+  lr: 0.0001

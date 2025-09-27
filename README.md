@@ -296,3 +296,9 @@ The original framework is excellent but computationally heavy. Here are the key 
     *   Created an `RND` component (`components/rnd.py`) that calculates intrinsic reward based on the prediction error of a randomly initialized target network.
     *   Updated the main training loop (`train.py`) to use the `RND` component for intrinsic motivation.
     *   Modified `config.yaml` to allow selecting `"rnd"` as the intrinsic reward type.
+*   **2025-09-26 18:18:45.834302**: Implemented "Change 3" from the modernization plan by amortizing the Safety Shield's computation.
+    *   Created a `SafetyNetwork` component (`components/safety_network.py`) that learns to project unsafe actions to safe ones.
+    *   Updated the `ReplayBuffer` to store both unsafe and safe actions to create a training dataset for the `SafetyNetwork`.
+    *   Modified the `Shield` to operate in two modes: a `search` mode for data collection and an `amortized` mode that uses the trained `SafetyNetwork` for fast projection.
+    *   Updated the main training loop (`train.py`) to train the `SafetyNetwork` and switch the shield's mode after a configured number of steps.
+    *   Added a `safety_network` section to `config.yaml` to control the new component's hyperparameters.

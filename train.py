@@ -4,6 +4,7 @@ import torch
 
 from environments.grid_life import GridLifeEnv
 from agents.persist_agent import PersistAgent
+from agents.mpc_agent import MPCAgent
 from components.homeostat import Homeostat
 from components.replay_buffer import ReplayBuffer
 from components.latent_world_model import LatentWorldModel
@@ -86,17 +87,6 @@ def main():
         )
         print("✅ State estimator initialized.")
 
-    print("\nInitializing agent...")
-    # The agent always works with the full state (real or estimated)
-    agent_obs_dim = external_obs_dim + internal_dim
-    agent = PersistAgent(
-        obs_dim=agent_obs_dim,
-        act_dim=env.action_dim,
-        act_limit=env.act_limit,
-        risk_sensitive_config=config.get('risk_sensitive')
-    )
-    print("✅ Agent initialized.")
-
     print("\nInitializing homeostat...")
     # Initialize MetaLearner if enabled
     meta_learner_config = config.get('meta_learning', {})
@@ -160,6 +150,29 @@ def main():
     print("\nInitializing viability approximator...")
     viability_approximator = ViabilityApproximator(internal_dim=internal_dim)
     print("✅ Viability approximator initialized.")
+
+    # --- Agent Initialization ---
+    # The agent is initialized here, after all its potential dependencies (models) are ready.
+    print("\nInitializing agent...")
+    mpc_config = config.get('mpc', {})
+    if mpc_config.get('enabled', False):
+        agent = MPCAgent(
+            latent_world_model=world_model,
+            internal_model=internal_model,
+            viability_approximator=viability_approximator,
+            action_space=env.action_space,
+            mpc_config=mpc_config
+        )
+    else:
+        agent_obs_dim = external_obs_dim + internal_dim
+        agent = PersistAgent(
+            obs_dim=agent_obs_dim,
+            act_dim=env.action_dim,
+            act_limit=env.act_limit,
+            risk_sensitive_config=config.get('risk_sensitive')
+        )
+    print("✅ Agent initialized.")
+
 
     # Initialize Safety Network
     print("\nInitializing safety network...")
@@ -248,7 +261,13 @@ def main():
 
             # 2. Agent proposes an action
             if total_steps > batch_size:
-                unsafe_action = agent.step(obs_for_agent)
+                if isinstance(agent, MPCAgent):
+                    # MPC agent needs a dictionary with obs and internal state
+                    agent_input_state = {'obs': external_obs, 'internal': state_for_components}
+                    unsafe_action = agent.step(agent_input_state)
+                else:
+                    # Standard RL agent gets a concatenated state vector
+                    unsafe_action = agent.step(obs_for_agent)
             else:
                 unsafe_action = env.action_space.sample()
 

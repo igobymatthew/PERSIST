@@ -13,6 +13,7 @@ from components.viability_approximator import ViabilityApproximator
 from components.rnd import RND
 from components.empowerment import Empowerment
 from components.shield import Shield
+from population.ensemble_shield import EnsembleShield
 from components.safety_network import SafetyNetwork
 from components.demonstration_buffer import DemonstrationBuffer
 from components.state_estimator import StateEstimator
@@ -100,6 +101,21 @@ class ComponentFactory:
         print("✅ Viability approximator initialized.")
         return viability_approximator
 
+    def create_viability_ensemble(self, env):
+        population_config = self.config.get('population', {})
+        ensemble_config = population_config.get('ensemble_shield', {})
+        if not ensemble_config.get('enabled', False):
+            return None
+
+        ensemble_size = ensemble_config.get('ensemble_size', 3)
+        print(f"Initializing viability ensemble of size {ensemble_size}...")
+        ensemble = [
+            ViabilityApproximator(internal_dim=env.internal_dim).to(self.device)
+            for _ in range(ensemble_size)
+        ]
+        print(f"✅ Viability ensemble of size {ensemble_size} initialized.")
+        return ensemble
+
     def create_intrinsic_reward_module(self, env, world_model):
         intrinsic_method = self.config['rewards']['intrinsic']
         if intrinsic_method == 'rnd':
@@ -135,17 +151,30 @@ class ComponentFactory:
         print("✅ Safety network initialized.")
         return safety_network
 
-    def create_shield(self, env, internal_model, viability_approximator, safety_network):
-        print("Initializing safety shield...")
-        shield = Shield(
-            internal_model=internal_model,
-            viability_approximator=viability_approximator,
-            action_space=env.action_space,
-            conf=self.config['viability']['shield']['conf'],
-            safety_network=safety_network,
-            mode='search'
-        )
-        print("✅ Safety shield initialized.")
+    def create_shield(self, env, internal_model, viability_approximator, safety_network, viability_ensemble=None):
+        population_config = self.config.get('population', {})
+        ensemble_config = population_config.get('ensemble_shield', {})
+
+        if ensemble_config.get('enabled', False) and viability_ensemble:
+            print("Initializing Ensemble Safety Shield...")
+            shield = EnsembleShield(
+                viability_models=viability_ensemble,
+                internal_model=internal_model,
+                action_space=env.action_space,
+                vote_method=ensemble_config.get('vote_method', 'veto_if_any_unsafe')
+            )
+            print("✅ Ensemble Safety Shield initialized.")
+        else:
+            print("Initializing safety shield...")
+            shield = Shield(
+                internal_model=internal_model,
+                viability_approximator=viability_approximator,
+                action_space=env.action_space,
+                conf=self.config['viability']['shield']['conf'],
+                safety_network=safety_network,
+                mode='search'
+            )
+            print("✅ Safety shield initialized.")
         return shield
 
     def create_replay_buffer(self, env):
@@ -321,11 +350,12 @@ class ComponentFactory:
         world_model = self.create_world_model(env)
         internal_model = self.create_internal_model(env)
         viability_approximator = self.create_viability_approximator(env)
+        viability_ensemble = self.create_viability_ensemble(env)
         safety_network = self.create_safety_network(env)
         dynamics_adapter = self.create_dynamics_adapter(internal_model)
         agent = self.create_agent(env, world_model, internal_model, viability_approximator)
         continual_learning_manager = self.create_continual_learning_manager(agent)
-        shield = self.create_shield(env, internal_model, viability_approximator, safety_network)
+        shield = self.create_shield(env, internal_model, viability_approximator, safety_network, viability_ensemble)
         safe_fallback_policy = self.create_safe_fallback_policy(env)
         cbf_layer = self.create_cbf_layer(env)
         meta_learner = self.create_meta_learner()
@@ -343,6 +373,7 @@ class ComponentFactory:
             'env': env, 'agent': agent, 'homeostat': homeostat,
             'world_model': world_model, 'internal_model': internal_model,
             'viability_approximator': viability_approximator,
+            'viability_ensemble': viability_ensemble,
             'intrinsic_reward_module': intrinsic_module,
             'safety_network': safety_network, 'shield': shield,
             'replay_buffer': replay_buffer, 'demonstration_buffer': demo_buffer,

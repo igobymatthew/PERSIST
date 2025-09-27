@@ -282,6 +282,13 @@ class Trainer:
             self.viability_approximator.train_on_demonstrations(self.demonstration_buffer, self.batch_size)
         self.viability_approximator.train_model(flat_est_internal, flat_viability_label)
 
+        # Also train the ensemble models if they exist
+        if self.viability_ensemble:
+            for model in self.viability_ensemble:
+                if self.demonstration_buffer and len(self.demonstration_buffer) > 0:
+                    model.train_on_demonstrations(self.demonstration_buffer, self.batch_size)
+                model.train_model(flat_est_internal, flat_viability_label)
+
         if self.constraint_manager:
             self.constraint_manager.update(flat_violations)
 

@@ -25,6 +25,33 @@ train:
   model_rollouts: 5
   amortize_after_steps: 20000 # Steps before switching to amortized shield
 
+curriculum:
+  enabled: true
+  steps: 50000
+  lambda_homeo:
+    start: 0.1
+    end: 0.7
+  lambda_intr:
+    start: 0.05
+    end: 0.3
+  viability_constraints:
+    - dim_name: "energy"
+      comparison: ">="
+      start: 0.05
+      end: 0.2
+    - dim_name: "temp_min"
+      comparison: ">="
+      start: 0.1
+      end: 0.3
+    - dim_name: "temp_max"
+      comparison: "<="
+      start: 0.9
+      end: 0.7
+    - dim_name: "integrity"
+      comparison: ">="
+      start: 0.3
+      end: 0.6
+
 safety_network:
   hidden_dim: 128
   lr: 0.0001

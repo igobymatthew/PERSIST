@@ -312,3 +312,7 @@ The original framework is excellent but computationally heavy. Here are the key 
     *   Modified the `ViabilityApproximator` to include a `train_on_demonstrations` method, allowing it to pre-train on safe states.
     *   Updated the main training loop (`train.py`) to use the new buffer and training method.
     *   Added a `demonstrations` section to `config.yaml` to specify the data path.
+*   **2025-09-26 20:20:23.540386**: Implemented curriculum learning as described in the "Implementation order."
+    *   Added a `CurriculumScheduler` to `train.py` to gradually increase the weights of persistence rewards (`lambda_homeo`, `lambda_intr`) and tighten the environment's viability constraints over a configurable number of steps.
+    *   The `GridLifeEnv` was updated to support dynamic constraint changes.
+    *   Added a `curriculum` section to `config.yaml` to control the new scheduling feature.

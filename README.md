@@ -278,6 +278,129 @@ The original framework is excellent but computationally heavy. Here are the key 
  * Change 4: Learn Viability from Safe Demonstrations.
    * The framework's method for learning the viability boundary relies on observing failures or near-failures. A safer and often more effective approach is to use Imitation Learning from demonstrations. By showing the agent examples of an expert operating safely, the ViabilityApproximator can learn the safe operating region without the agent ever needing to risk a catastrophic failure.
 
+
+***more to do: 
+*You’ve got a solid spine. What’s missing are the pieces that turn “survive this episode” into “survive across regimes, failures, and time.” Gap list with concrete adds:
+
+1) Hard-safety math (beyond a learned viability classifier)
+	•	Control Barrier Functions (CBF) / CLF-CBF-QP layer for analytic safety guarantees on continuous controls.
+Add: components/cbf_layer.py (QP solver wrapper), components/dynamics_adapter.py (linearization).
+Config: safety.cbf:{enabled, relax_penalty, delta}.
+	•	Hamilton–Jacobi Reachability for small systems to compute true viable sets (offline) and distill to \hat{\mathcal V}_\psi.
+Add: tools/hj_reachability/ (offline precompute) + scripts/distill_viability.py.
+
+2) Constraint enforcement with dual control
+	•	Lagrangian/chance constraints (primal–dual) so the agent adapts \lambda_H automatically to hold a target violation rate.
+Add: components/constraint_manager.py (dual ascent updating multipliers), integrates into loss.
+Metrics: violations.moving_avg, dual.lambda_history.
+
+3) Out-of-distribution + anomaly defense
+	•	Runtime OOD gate on observations and internal x: energy-based scores / MC-Dropout / ensembles.
+Action: fall back to shielded “safe policy” or MPC when OOD.
+Add: components/ood_detector.py, policies/safe_fallback.py.
+Config: ood:{method, threshold, fallback="mpc|rule"}.
+
+4) Continual / lifelong learning without catastrophic forgetting
+	•	Stability–plasticity: EWC / MAS / L2-SP + rehearsal buffer + periodic consolidation checkpoints.
+Add: components/continual.py with penalties + buffers/rehearsal.py.
+Schedule: consolidate every N episodes; freeze safety-critical heads.
+
+5) Self-maintenance behaviors (not just avoiding failure)
+	•	Maintenance actions & schedules (refuel, cool-down, self-repair) modeled as explicit subgoals with costs.
+Add: env/maintenance_tasks.py, reward shaping for deferred maintenance avoidance.
+Planner: encode periodic maintenance windows in MPC terminal costs.
+
+6) Resource accounting / bounded rationality
+	•	Compute/energy budgets as first-class state with penalties and termination.
+Add: components/budget_meter.py (tracks FLOPs/latency/energy), hooks into homeostat.
+Config: budgets:{compute_ms_per_step, energy_cap}.
+
+7) Adversarial robustness & red-team loops
+	•	Adversarial training for observation/action perturbations; worst-case rollout sampling.
+Add: components/adversary.py (PGD/RS), trainers/robust_trainer.py.
+Metric: worst-k CVaR survival under perturbations.
+
+8) Interpretability for the safety path
+	•	Causal/probing heads that predict each constraint margin g_i(x) from latent features; saliency on shield decisions.
+Add: components/safety_probe.py + attribution reports in utils/reporting.py.
+Artifact: “why shield blocked” JSON per step.
+
+9) Formal persistence across restarts (system-level)
+	•	Checkpointing & roll-forward policy with integrity checks; degraded-mode controller if load fails.
+Add: systems/persistence.py (atomic save, hash, warm-start), policies/degraded_mode.py.
+Config: persistence:{interval_steps, retain_n, crc32=true}.
+
+10) Population-level persistence
+	•	Ecological diversity & redundancy: population-based training (PBT), niching, ensemble safety votes.
+Add: population/pbt.py, population/ensemble_shield.py.
+Metric: fleet survival under correlated shocks.
+
+11) Multi-agent viability (competition/cooperation)
+	•	Shared-resource constraints and market/auction or control-barrier coupling between agents.
+Add: multiagent/resource_allocator.py (VCG or proportional), multiagent/cbf_coupler.py.
+Tests: tragedy-of-commons scenarios.
+
+12) Verification & falsification harness
+	•	Property-based testing for safety invariants; scenario fuzzing and falsification (CEM/SMT).
+Add: tests/spec_safety_test.py, tools/fuzz_scenarios.py.
+CI: block merges on invariant breaches.
+
+13) Evaluation under regime shift
+	•	Shift suite: weathered dynamics, sensor dropouts, parameter drifts, rare hazards.
+Add: benchmarks/persist_suite/ with YAML scenarios.
+Metrics: survival @ shift, recovery time, safe-return rate after boundary hit.
+
+14) Data & config contract for constraints
+	•	Schema to declare variables, units, bounds, recovery dynamics, maintenance ops.
+Add: schemas/viability.schema.json; validator in utils/validate_config.py.
+Enforce: refuse run if constraints underspecified.
+
+15) Governance hooks (practical ops)
+	•	Runtime monitors (Prometheus/OpenTelemetry), alerting on leading indicators (near-boundary density ↑).
+Add: ops/telemetry.py, ops/alerts.yml.
+Dashboard: survival curves, dual multipliers, shield trigger rate.
+
+⸻
+
+Concrete patch list (minimal to cover the gaps)
+	•	components/cbf_layer.py, components/constraint_manager.py, components/ood_detector.py
+	•	components/continual.py, buffers/rehearsal.py
+	•	systems/persistence.py, policies/degraded_mode.py
+	•	population/ensemble_shield.py
+	•	benchmarks/persist_suite/ + tests/spec_safety_test.py
+	•	schemas/viability.schema.json + utils/validate_config.py
+
+Config deltas
+
+safety:
+  cbf: {enabled: true, relax_penalty: 10.0}
+  chance_constraint: {target_violation_rate: 0.005, dual_lr: 5e-4}
+ood:
+  method: "energy"   # energy|mc_dropout|ensemble
+  threshold: -5.0
+continual:
+  ewc_lambda: 5.0
+  consolidate_every: 5000
+budgets:
+  compute_ms_per_step: 10
+  energy_cap: 1.0
+persistence:
+  checkpoint_every: 2000
+  retain: 5
+population:
+  ensemble_size: 3
+  vote: "veto_if_any_unsafe"
+eval:
+  shift_suite: ["sensor_dropout", "dynamics_drift", "rare_hazard"]
+
+Why these matter
+	•	CBF/HJ gives safety guarantees you can’t get from a learned classifier alone.
+	•	Dual control & chance constraints keep violations at a target rate without hand-tuning \lambda.
+	•	OOD, continual, adversarial, maintenance = persistence under reality, not just the training distribution.
+	•	System persistence + population redundancy handles crashes and correlated failures—the real killers of long-run survival.
+	•	Spec tests + shift suite make “persistence” measurable and regressions obvious.
+
+
 ***
 ### Progress Updates
 *   **2025-09-27T17:31:45+00:00**: Refactored the codebase for improved modularity, maintainability, and performance.

@@ -72,7 +72,7 @@ class SAC(nn.Module):
         self.critic1_target.load_state_dict(self.critic1.state_dict())
         self.critic2_target.load_state_dict(self.critic2.state_dict())
 
-        self.log_alpha = torch.zeros(1, requires_grad=True)
+        self.log_alpha = nn.Parameter(torch.zeros(1))
         self.target_entropy = -torch.prod(torch.Tensor((act_dim,))).item()
 
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-3)
@@ -81,16 +81,13 @@ class SAC(nn.Module):
 
     def get_action(self, obs, deterministic=False):
         with torch.no_grad():
-            obs_tensor = torch.as_tensor(obs, dtype=torch.float32)
+            device = next(self.actor.parameters()).device
+            obs_tensor = torch.as_tensor(obs, dtype=torch.float32, device=device)
             action, _ = self.actor(obs_tensor, deterministic, False)
-            return action.numpy()
+            return action.cpu().numpy()
 
     def update(self, data, gamma=0.99, polyak=0.995):
-        obs = torch.as_tensor(data['obs'], dtype=torch.float32)
-        act = torch.as_tensor(data['action'], dtype=torch.float32)
-        rew = torch.as_tensor(data['reward'], dtype=torch.float32)
-        next_obs = torch.as_tensor(data['next_obs'], dtype=torch.float32)
-        done = torch.as_tensor(data['done'], dtype=torch.float32)
+        obs, act, rew, next_obs, done = data['obs'], data['action'], data['reward'], data['next_obs'], data['done']
 
         alpha = torch.exp(self.log_alpha)
 

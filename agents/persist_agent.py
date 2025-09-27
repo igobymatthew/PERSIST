@@ -24,3 +24,7 @@ class PersistAgent:
 
     def learn(self, data):
         return self.policy.update(data)
+
+    def to(self, device):
+        self.policy.to(device)
+        return self

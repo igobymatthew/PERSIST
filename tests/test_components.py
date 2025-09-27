@@ -107,7 +107,7 @@ def test_internal_model_training_and_prediction():
     # 1. Setup
     internal_dim = 2
     act_dim = 1
-    model = InternalModel(internal_dim=internal_dim, act_dim=act_dim, hidden_dim=32) # Increased size
+    model = InternalModel(internal_dim=internal_dim, act_dim=act_dim, hidden_dim=64)
 
     # 2. Create dummy training data
     # Let's define a simple dynamic: next_state = current_state + action
@@ -128,7 +128,7 @@ def test_internal_model_training_and_prediction():
 
     # 3. Train the model
     initial_loss = model.train_model(current_states, actions, next_states_true)
-    for _ in range(100): # Increased training
+    for _ in range(300): # Increased training iterations for robustness
         loss = model.train_model(current_states, actions, next_states_true)
     final_loss = loss
 

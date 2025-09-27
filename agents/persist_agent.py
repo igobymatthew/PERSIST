@@ -23,4 +23,4 @@ class PersistAgent:
         return np.clip(action, -self.act_limit, self.act_limit)
 
     def learn(self, data):
-        self.policy.update(data)
+        return self.policy.update(data)

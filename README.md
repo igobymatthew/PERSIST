@@ -519,6 +519,10 @@ That’s the difference between “survive the episode” and “survive in the 
 
 ***
 ### Progress Updates
+*   **2025-09-27T13:07:11+00:00**: Implemented the Hamilton-Jacobi (HJ) Reachability analysis scaffolding.
+    *   Created `tools/hj_reachability/compute_viability.py` as a placeholder for offline viable set computation.
+    *   Added `scripts/distill_viability.py` to train the `ViabilityApproximator` by distilling knowledge from the pre-computed set.
+    *   This establishes the workflow for using formal methods to define safety and then transferring that knowledge to a neural network.
 *   **2025-09-27T12:40:00+00:00**: Implemented the "Resource Accounting / Bounded Rationality" feature.
     *   Created a `BudgetMeter` component (`components/budget_meter.py`) to track resource consumption (e.g., energy, computation time) over an episode.
     *   Integrated the `BudgetMeter` into the main training loop (`utils/trainer.py`), which now terminates an episode and applies a configurable penalty if the agent's budget is exhausted.

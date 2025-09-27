@@ -23,6 +23,8 @@ from components.ood_detector import OODDetector
 from policies.safe_fallback import SafeFallbackPolicy
 from components.dynamics_adapter import DynamicsAdapter
 from components.cbf_layer import CBFLayer
+from buffers.rehearsal import RehearsalBuffer
+from components.continual import ContinualLearningManager
 
 class ComponentFactory:
     def __init__(self, config_path="config.yaml"):
@@ -289,6 +291,31 @@ class ComponentFactory:
         print("✅ CBF layer initialized.")
         return cbf_layer
 
+    def create_rehearsal_buffer(self):
+        continual_config = self.config.get('continual', {})
+        if not continual_config.get('enabled', False):
+            return None
+        print("Initializing rehearsal buffer...")
+        buffer = RehearsalBuffer(
+            capacity=continual_config.get('rehearsal_capacity', 2000),
+            device=self.device
+        )
+        print("✅ Rehearsal buffer initialized.")
+        return buffer
+
+    def create_continual_learning_manager(self, agent):
+        continual_config = self.config.get('continual', {})
+        if not continual_config.get('enabled', False):
+            return None
+        print("Initializing ContinualLearningManager...")
+        manager = ContinualLearningManager(
+            agent=agent,
+            ewc_lambda=continual_config.get('ewc_lambda', 1.0),
+            device=self.device
+        )
+        print("✅ ContinualLearningManager initialized.")
+        return manager
+
     def get_all_components(self):
         env = self.create_env()
         world_model = self.create_world_model(env)
@@ -297,6 +324,7 @@ class ComponentFactory:
         safety_network = self.create_safety_network(env)
         dynamics_adapter = self.create_dynamics_adapter(internal_model)
         agent = self.create_agent(env, world_model, internal_model, viability_approximator)
+        continual_learning_manager = self.create_continual_learning_manager(agent)
         shield = self.create_shield(env, internal_model, viability_approximator, safety_network)
         safe_fallback_policy = self.create_safe_fallback_policy(env)
         cbf_layer = self.create_cbf_layer(env)
@@ -307,6 +335,7 @@ class ComponentFactory:
         intrinsic_module = self.create_intrinsic_reward_module(env, world_model)
         state_estimator = self.create_state_estimator(env)
         replay_buffer = self.create_replay_buffer(env)
+        rehearsal_buffer = self.create_rehearsal_buffer()
         demo_buffer = self.create_demonstration_buffer()
         evaluator = self.create_evaluator()
 
@@ -317,8 +346,10 @@ class ComponentFactory:
             'intrinsic_reward_module': intrinsic_module,
             'safety_network': safety_network, 'shield': shield,
             'replay_buffer': replay_buffer, 'demonstration_buffer': demo_buffer,
+            'rehearsal_buffer': rehearsal_buffer,
             'state_estimator': state_estimator, 'meta_learner': meta_learner,
             'constraint_manager': constraint_manager, 'ood_detector': ood_detector,
+            'continual_learning_manager': continual_learning_manager,
             'safe_fallback_policy': safe_fallback_policy,
             'dynamics_adapter': dynamics_adapter, 'cbf_layer': cbf_layer,
             'evaluator': evaluator, 'device': self.device, 'config': self.config

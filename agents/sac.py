@@ -86,7 +86,7 @@ class SAC(nn.Module):
             action, _ = self.actor(obs_tensor, deterministic, False)
             return action.cpu().numpy()
 
-    def update(self, data, gamma=0.99, polyak=0.995):
+    def update(self, data, gamma=0.99, polyak=0.995, ewc_penalty=0.0):
         obs, act, rew, next_obs, done = data['obs'], data['action'], data['reward'], data['next_obs'], data['done']
 
         alpha = torch.exp(self.log_alpha)
@@ -119,7 +119,8 @@ class SAC(nn.Module):
         q2_pi = self.critic2(obs, pi)
         q_pi = torch.min(q1_pi, q2_pi).squeeze(-1)
 
-        actor_loss = (alpha.detach() * logp_pi - q_pi).mean()
+        # Add the EWC penalty to the actor loss
+        actor_loss = (alpha.detach() * logp_pi - q_pi).mean() + ewc_penalty
 
         self.actor_optimizer.zero_grad()
         actor_loss.backward()

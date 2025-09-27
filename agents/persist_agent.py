@@ -22,8 +22,14 @@ class PersistAgent:
         action = self.policy.get_action(s, deterministic)
         return np.clip(action, -self.act_limit, self.act_limit)
 
-    def learn(self, data):
-        return self.policy.update(data)
+    def learn(self, data, ewc_penalty=0.0):
+        # Pass the penalty to the underlying policy's update method
+        # This works for SAC. If CVAR_SAC needs it, it would need a similar change.
+        if isinstance(self.policy, SAC):
+            return self.policy.update(data, ewc_penalty=ewc_penalty)
+        else:
+            # For now, other policies don't use the penalty
+            return self.policy.update(data)
 
     def to(self, device):
         self.policy.to(device)

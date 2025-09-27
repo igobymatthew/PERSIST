@@ -403,6 +403,10 @@ Why these matter
 
 ***
 ### Progress Updates
+*   **2025-09-27T12:07:30+00:00**: Implemented a continual learning system to mitigate catastrophic forgetting.
+    *   Created a `RehearsalBuffer` (`buffers/rehearsal.py`) to store past experiences using reservoir sampling.
+    *   Implemented a `ContinualLearningManager` (`components/continual.py`) that uses Elastic Weight Consolidation (EWC) to protect important neural network weights.
+    *   Integrated the EWC penalty into the SAC agent's loss function and added a periodic consolidation step to the main training loop.
 *   **2025-09-27T18:00:00+00:00**: Implemented advanced safety and robustness features as outlined in the roadmap.
     *   Added a Control Barrier Function (CBF) layer (`components/cbf_layer.py`) to provide formal safety guarantees by solving a Quadratic Program to filter actions. This includes a `DynamicsAdapter` (`components/dynamics_adapter.py`) for linearizing the internal model.
     *   Implemented a `ConstraintManager` (`components/constraint_manager.py`) that uses dual ascent to automatically tune homeostatic penalty multipliers, enforcing a target violation rate without manual parameter tuning.

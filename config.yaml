@@ -102,3 +102,9 @@ ood:
   enabled: true
   method: "energy"   # energy|mc_dropout|ensemble
   threshold: -5.0
+
+continual:
+  enabled: true
+  ewc_lambda: 5.0
+  consolidate_every: 5000 # In steps
+  rehearsal_capacity: 2000

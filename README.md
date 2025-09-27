@@ -519,6 +519,10 @@ That’s the difference between “survive the episode” and “survive in the 
 
 ***
 ### Progress Updates
+*   **2025-09-27T13:13:49+00:00**: Implemented self-maintenance behaviors.
+    *   Added "refuel," "cool-down," and "repair" stations to the `GridLifeEnv`.
+    *   These tasks incur a small configurable penalty, encouraging the agent to learn strategic resource management.
+    *   Updated `config.yaml` with a `maintenance` section to control these features.
 *   **2025-09-27T13:07:11+00:00**: Implemented the Hamilton-Jacobi (HJ) Reachability analysis scaffolding.
     *   Created `tools/hj_reachability/compute_viability.py` as a placeholder for offline viable set computation.
     *   Added `scripts/distill_viability.py` to train the `ViabilityApproximator` by distilling knowledge from the pre-computed set.

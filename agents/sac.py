@@ -79,6 +79,9 @@ class SAC(nn.Module):
         self.critic_optimizer = optim.Adam(list(self.critic1.parameters()) + list(self.critic2.parameters()), lr=1e-3)
         self.alpha_optimizer = optim.Adam([self.log_alpha], lr=1e-3)
 
+    def step(self, obs, deterministic=False):
+        return self.get_action(obs, deterministic)
+
     def get_action(self, obs, deterministic=False):
         with torch.no_grad():
             device = next(self.actor.parameters()).device
@@ -86,12 +89,12 @@ class SAC(nn.Module):
             action, _ = self.actor(obs_tensor, deterministic, False)
             return action.cpu().numpy()
 
-    def update(self, data, gamma=0.99, polyak=0.995, ewc_penalty=0.0):
+    def learn(self, data, gamma=0.99, polyak=0.995, ewc_penalty=0.0, adversary=None):
         obs, act, rew, next_obs, done = data['obs'], data['action'], data['reward'], data['next_obs'], data['done']
 
         alpha = torch.exp(self.log_alpha)
 
-        # Critic update
+        # --- Critic Update ---
         with torch.no_grad():
             next_act, next_logp = self.actor(next_obs)
             q1_target = self.critic1_target(next_obs, next_act)
@@ -99,8 +102,14 @@ class SAC(nn.Module):
             q_target = torch.min(q1_target, q2_target).squeeze(-1)
             backup = rew + gamma * (1 - done) * (q_target - alpha * next_logp)
 
-        q1 = self.critic1(obs, act).squeeze(-1)
-        q2 = self.critic2(obs, act).squeeze(-1)
+        # Adversarial training step for the critic
+        obs_for_critic = obs
+        if adversary:
+            # Generate adversarial observation to attack the critic
+            obs_for_critic = adversary.perturb(self.critic1, obs, act, backup)
+
+        q1 = self.critic1(obs_for_critic, act).squeeze(-1)
+        q2 = self.critic2(obs_for_critic, act).squeeze(-1)
 
         critic_loss = F.mse_loss(q1, backup) + F.mse_loss(q2, backup)
 
@@ -108,12 +117,13 @@ class SAC(nn.Module):
         critic_loss.backward()
         self.critic_optimizer.step()
 
-        # Actor and alpha update
+        # --- Actor and Alpha Update ---
         for p in self.critic1.parameters():
             p.requires_grad = False
         for p in self.critic2.parameters():
             p.requires_grad = False
 
+        # Actor learns from the original, non-perturbed state
         pi, logp_pi = self.actor(obs)
         q1_pi = self.critic1(obs, pi)
         q2_pi = self.critic2(obs, pi)
@@ -137,7 +147,7 @@ class SAC(nn.Module):
         for p in self.critic2.parameters():
             p.requires_grad = True
 
-        # Target network update
+        # --- Target Network Update ---
         with torch.no_grad():
             for p, p_target in zip(self.critic1.parameters(), self.critic1_target.parameters()):
                 p_target.data.mul_(polyak)

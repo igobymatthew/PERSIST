@@ -18,13 +18,26 @@ rewards:
   lambda_homeo: 0.7
   lambda_intr:  0.3
   intrinsic: "empowerment"  # or "surprise" or "rnd"
-train:
-  algo: "SAC"        # or PPO/TD3
-  batch_size: 1024
-  gamma: 0.995
+training:
+  # --- Single-agent settings ---
+  algo: "SAC"
   update_every: 64
   model_rollouts: 5
   amortize_after_steps: 20000
+
+  # --- Multi-agent settings ---
+  scheme: "ctde"
+  buffer:
+    type: "joint"
+    capacity: 500000
+    seq_len: 1
+
+  # --- Common settings ---
+  batch_size: 1024
+  gamma: 0.99
+  tau: 0.005 # For SAC target network updates
+  actor_lr: 3e-4
+  critic_lr: 3e-4
 
 risk_sensitive:
   enabled: false # Set to true to use CVAR-SAC
@@ -125,3 +138,77 @@ maintenance:
   enabled: true
   tasks: ["refuel", "cool_down", "repair"]
   penalty_costs: {refuel: 0.1, cool_down: 0.1, repair: 0.3}
+
+adversarial:
+  enabled: true
+  epsilon: 0.03
+  alpha: 0.01
+  num_iter: 7
+
+safety_probe:
+  enabled: true
+  log_path: "safety_reports.log"
+  hidden_sizes: [64, 64]
+  lr: 0.001
+
+multiagent:
+  enabled: false # Set to true to run multi-agent training
+  num_agents: 8
+  layout: "grid"
+  sticky_agents: false
+  remove_dead: true
+  communication:
+    enabled: false
+    bandwidth: 8
+    cost_per_bit: 0.001
+  observation:
+    view_radius: 5
+    neighbor_radius: 3
+    include_time: true
+  collisions:
+    single_occupancy: true
+    frustration_cost: 0.01
+    priority: ["integrity", "energy", "random"]
+  termination:
+    stop_when_all_dead: true
+    stop_when_resource_exhausted: false
+    max_steps: 1024
+
+agent_types:
+  default:
+    count: 8
+    policy: "shared_sac"
+    role_embedding_dim: 8
+    homeostasis:
+      mu: [0.7, 0.5, 0.9]
+      w:  [1.0, 0.5, 1.5]
+    budgets:
+      compute_ms_per_step: 10
+      energy_cap: 1.0
+    shield:
+      mode: "ensemble"
+      conf: 0.97
+      horizon: 8
+    cbf:
+      enabled: false # Disabled for initial implementation
+      relax_penalty: 10.0
+
+resource_model:
+  food:
+    initial_density: 0.12
+    regen_rule: "logistic"
+    regen_rate: 0.02
+    carrying_capacity: 1.0
+  heat:
+    field: "perlin"
+    drift: 0.001
+  hazards:
+    spawn_rate: 0.0005
+    decay_rate: 0.0
+
+resource_allocator:
+  mode: "proportional"
+  fairness: "alpha_fair"
+  alpha: 1.0
+  tax: 0.02
+  conflict_resolution: "priority"

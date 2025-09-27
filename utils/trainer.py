@@ -171,10 +171,24 @@ class Trainer:
                 if self.meta_learner:
                     self.meta_learner.step(total_reward, true_next_internal_state)
 
-                # 9. Store experience
+                # 9. Log safety report if applicable
+                if self.safety_reporter and self.safety_probe:
+                    with torch.no_grad():
+                        state_tensor = torch.as_tensor(state_for_components, dtype=torch.float32, device=self.device)
+                        predicted_margins = self.safety_probe(state_tensor)
+                        self.safety_reporter.log_shield_decision(
+                            step=total_steps,
+                            internal_state=state_tensor,
+                            unsafe_action=torch.as_tensor(unsafe_action, dtype=torch.float32),
+                            safe_action=torch.as_tensor(safe_action, dtype=torch.float32),
+                            probe_margins=predicted_margins
+                        )
+
+                # 10. Store experience
                 viability_label = 1.0 if not (done and info.get('violation', False)) else 0.0
                 violations = info.get('internal_state_violation', np.zeros(self.env.internal_dim))
-                self.replay_buffer.store(external_obs, safe_action, unsafe_action, total_reward, next_external_obs, done, true_internal_state, true_next_internal_state, viability_label, violations)
+                constraint_margins = info.get('constraint_margins', np.zeros(self.env.num_constraints))
+                self.replay_buffer.store(external_obs, safe_action, unsafe_action, total_reward, next_external_obs, done, true_internal_state, true_next_internal_state, viability_label, violations, constraint_margins)
 
                 # Add state to rehearsal buffer for EWC
                 if self.rehearsal_buffer:
@@ -293,9 +307,15 @@ class Trainer:
         flat_viability_label = viability_label_seq.reshape(-1)
         violations_seq = seq_batch['violations_seq']
         flat_violations = violations_seq.reshape(-1, self.env.internal_dim)
+        constraint_margins_seq = seq_batch['constraint_margins_seq']
+        flat_constraint_margins = constraint_margins_seq.reshape(-1, self.env.num_constraints)
 
 
         self.internal_model.train_model(flat_est_internal, flat_act, flat_true_next_internal)
+
+        # Train the safety probe
+        if self.safety_probe:
+            self.safety_probe.train_probe(flat_est_internal.detach(), flat_constraint_margins)
 
         if self.demonstration_buffer and len(self.demonstration_buffer) > 0:
             self.viability_approximator.train_on_demonstrations(self.demonstration_buffer, self.batch_size)

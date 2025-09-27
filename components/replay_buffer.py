@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 class ReplayBuffer:
-    def __init__(self, capacity, obs_dim, action_dim, internal_dim, device):
+    def __init__(self, capacity, obs_dim, action_dim, internal_dim, num_constraints, device):
         self.capacity = capacity
         self.device = device
 
@@ -19,11 +19,12 @@ class ReplayBuffer:
         self.next_internal_state_buf = np.zeros((capacity, internal_dim), dtype=np.float32)
         self.viability_label_buf = np.zeros(capacity, dtype=np.float32)
         self.violations_buf = np.zeros((capacity, internal_dim), dtype=np.float32)
+        self.constraint_margins_buf = np.zeros((capacity, num_constraints), dtype=np.float32)
 
 
         self.ptr, self.size = 0, 0
 
-    def store(self, obs, action, unsafe_action, reward, next_obs, done, internal_state, next_internal_state, viability_label, violations):
+    def store(self, obs, action, unsafe_action, reward, next_obs, done, internal_state, next_internal_state, viability_label, violations, constraint_margins):
         self.obs_buf[self.ptr] = obs
         self.next_obs_buf[self.ptr] = next_obs
         self.action_buf[self.ptr] = action
@@ -34,6 +35,7 @@ class ReplayBuffer:
         self.next_internal_state_buf[self.ptr] = next_internal_state
         self.viability_label_buf[self.ptr] = viability_label
         self.violations_buf[self.ptr] = violations
+        self.constraint_margins_buf[self.ptr] = constraint_margins
 
         self.ptr = (self.ptr + 1) % self.capacity
         self.size = min(self.size + 1, self.capacity)
@@ -82,7 +84,8 @@ class ReplayBuffer:
             internal_state=self.internal_state_buf,
             next_internal_state=self.next_internal_state_buf,
             viability_label=self.viability_label_buf,
-            violations=self.violations_buf
+            violations=self.violations_buf,
+            constraint_margins=self.constraint_margins_buf
         )
 
     def __len__(self):

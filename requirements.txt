@@ -4,3 +4,4 @@ PyYAML
 cvxpy
 osqp
 jsonschema
+hypothesis

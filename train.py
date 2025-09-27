@@ -14,6 +14,48 @@ from components.shield import Shield
 from components.safety_network import SafetyNetwork
 from components.demonstration_buffer import DemonstrationBuffer
 
+class CurriculumScheduler:
+    def __init__(self, config):
+        self.config = config.get('curriculum', {})
+        if not self.config.get('enabled', False):
+            self.enabled = False
+            return
+
+        self.enabled = True
+        self.total_steps = self.config['steps']
+        self.lambdas = {}
+        for key in ['lambda_homeo', 'lambda_intr']:
+            if key in self.config:
+                self.lambdas[key] = (self.config[key]['start'], self.config[key]['end'])
+
+        self.constraints = {}
+        for const_conf in self.config.get('viability_constraints', []):
+            self.constraints[const_conf['dim_name']] = (const_conf['start'], const_conf['end'])
+
+    def _interpolate(self, start, end, progress):
+        return start + (end - start) * progress
+
+    def get_current_values(self, step):
+        if not self.enabled:
+            # This should not be called if not enabled, but as a safeguard:
+            return {'lambda_homeo': 0, 'lambda_intr': 0, 'constraints': {}}
+
+        progress = min(1.0, step / self.total_steps)
+
+        current_values = {}
+        # Interpolate lambdas
+        for key, (start, end) in self.lambdas.items():
+            current_values[key] = self._interpolate(start, end, progress)
+
+        # Interpolate constraints
+        current_constraints = {}
+        for key, (start, end) in self.constraints.items():
+            current_constraints[key] = self._interpolate(start, end, progress)
+
+        current_values['constraints'] = current_constraints
+
+        return current_values
+
 def main():
     print("--- Starting Training Script ---")
     # Load configuration
@@ -109,8 +151,16 @@ def main():
         else:
             print("✅ Demonstration buffer initialized.")
 
+    print("\nInitializing curriculum scheduler...")
+    scheduler = CurriculumScheduler(config)
+    if scheduler.enabled:
+        print("✅ Curriculum enabled.")
+    else:
+        print("ℹ️ Curriculum disabled, using fixed parameters.")
+
     print("\n--- ✅ All Components Initialized ---")
 
+    # Get initial lambda values, which will be updated by the curriculum if enabled
     lambda_homeo = config['rewards']['lambda_homeo']
     lambda_intr = config['rewards']['lambda_intr']
     batch_size = config['train']['batch_size']
@@ -160,6 +210,13 @@ def main():
             internal_state = next_internal_state
             ep_len += 1
             total_steps += 1
+
+            # Update curriculum parameters
+            if scheduler.enabled:
+                current_params = scheduler.get_current_values(total_steps)
+                lambda_homeo = current_params['lambda_homeo']
+                lambda_intr = current_params['lambda_intr']
+                env.update_constraints(current_params['constraints'])
 
             # Switch shield to amortized mode after enough training
             if shield.mode == 'search' and total_steps >= amortize_after_steps:

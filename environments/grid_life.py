@@ -20,6 +20,9 @@ class GridLifeEnv:
         # Internal state: energy, temp, integrity
         self.internal_state = np.array(self.config['internal_state']['mu'])
 
+        self.dim_map = {name: i for i, name in enumerate(self.config['internal_state']['dims'])}
+        self.constraints = self._parse_constraints(self.config['viability']['constraints'])
+
         self.food_pos = self._place_randomly()
         self.hot_pos = self._place_randomly()
         self.hazard_pos = self._place_randomly()
@@ -28,6 +31,32 @@ class GridLifeEnv:
         self.act_limit = 1.0
         self.action_space = MockActionSpace(low=-self.act_limit, high=self.act_limit, shape=(self.action_dim,))
         self.observation_space_dim = self.grid_size[0] * self.grid_size[1] + len(self.internal_state)
+
+    def _parse_constraints(self, constraint_strings):
+        """ Parses constraint strings from the config file into a structured format. """
+        parsed = []
+        for s in constraint_strings:
+            parts = s.split()
+            dim_name, op = parts[0], parts[1]
+
+            if dim_name == 'temp' and op == 'in':
+                min_val = float(parts[2].strip('[],'))
+                max_val = float(parts[3].strip('[]'))
+                parsed.append({'dim_idx': self.dim_map['temp'], 'op': '>=', 'val': min_val, 'name': 'temp_min'})
+                parsed.append({'dim_idx': self.dim_map['temp'], 'op': '<=', 'val': max_val, 'name': 'temp_max'})
+            else:
+                val = float(parts[2])
+                parsed.append({'dim_idx': self.dim_map[dim_name], 'op': op, 'val': val, 'name': dim_name})
+        return parsed
+
+    def update_constraints(self, new_values):
+        """
+        Updates the environment's viability constraints dynamically.
+        `new_values` is a dictionary where keys match the 'name' of the constraint.
+        """
+        for constraint in self.constraints:
+            if constraint['name'] in new_values:
+                constraint['val'] = new_values[constraint['name']]
 
     def _place_randomly(self):
         return np.random.randint(0, self.grid_size[0], size=2)
@@ -69,16 +98,21 @@ class GridLifeEnv:
         if np.array_equal(self.agent_pos, self.hazard_pos):
             self.internal_state[2] -= 0.2
 
-        # Check for constraint violations
+        # Check for constraint violations using dynamic constraints
         done = False
-        constraints = self.config['viability']['constraints']
+        info = {'violation': False}
+        for c in self.constraints:
+            val = self.internal_state[c['dim_idx']]
+            op = c['op']
+            threshold = c['val']
 
-        # Simplified parsing of constraints from config
-        # "energy >= 0.2"
-        if self.internal_state[0] < 0.2: done = True
-        # "temp in [0.3, 0.7]"
-        if not (0.3 <= self.internal_state[1] <= 0.7): done = True
-        # "integrity >= 0.6"
-        if self.internal_state[2] < 0.6: done = True
+            if op == '>=' and not val >= threshold:
+                done = True
+            elif op == '<=' and not val <= threshold:
+                done = True
 
-        return self._get_obs(), task_reward, done, {}
+            if done:
+                info['violation'] = True
+                break
+
+        return self._get_obs(), task_reward, done, info

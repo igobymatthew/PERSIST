@@ -400,6 +400,122 @@ Why these matter
 	•	System persistence + population redundancy handles crashes and correlated failures—the real killers of long-run survival.
 	•	Spec tests + shift suite make “persistence” measurable and regressions obvious.
 
+---ON 09.27.2025.@15.56.00----
+
+What’s still missing
+
+Here are the remaining gaps that separate episodic survival from true persistence across environments, failures, and time:
+
+1. Formal verification hooks
+
+You have property-based tests, but not formal reachability guarantees for the shield + internal model.
+
+Add: components/cbf_layer.py + tools/hj_reachability/ so you can actually compute or bound safe sets analytically for small subsystems.
+
+2. Constraint governance
+
+Right now, constraint definitions live in YAML. They need first-class schema validation + runtime contracts.
+
+Add: schemas/viability.schema.json + utils/validate_config.py.
+
+Enforce: refuse training if constraints are underspecified (no units, no bounds).
+
+3. Self-maintenance behaviors
+
+Avoiding failure isn’t the same as planning proactive repairs.
+
+Add explicit maintenance tasks (cool-down, refuel, self-repair) in the environment, with costs and scheduling.
+
+This pushes the agent to learn deferred maintenance tradeoffs, critical for persistence.
+
+4. Adversarial robustness
+
+No red-team loop yet. Without it, persistence breaks under adversarial perturbations.
+
+Add: components/adversary.py, trainers/robust_trainer.py.
+
+Metric: worst-k CVaR survival under perturbations.
+
+5. Interpretability for safety path
+
+Right now, you log violations, but not why the shield blocked an action.
+
+Add: components/safety_probe.py (predicts each constraint margin from latent features) + attribution reports.
+
+Output JSON traces: "shield_reason": "temp_out_of_bounds".
+
+6. Multi-agent persistence
+
+Your current system is single-agent. True persistence usually requires coexistence under shared resources.
+
+Add: multiagent/resource_allocator.py, multiagent/cbf_coupler.py.
+
+Test on tragedy-of-commons environments.
+
+7. Governance + telemetry
+
+You have metrics, but not ops-grade monitoring.
+
+Add: ops/telemetry.py, ops/alerts.yml.
+
+Hook into Prometheus/OpenTelemetry to trigger alerts when “near-boundary density” spikes.
+
+Minimal patch list left to implement
+
+components/cbf_layer.py + components/dynamics_adapter.py
+
+tools/hj_reachability/ + scripts/distill_viability.py
+
+schemas/viability.schema.json + utils/validate_config.py
+
+env/maintenance_tasks.py
+
+components/adversary.py + trainers/robust_trainer.py
+
+components/safety_probe.py + utils/reporting.py
+
+multiagent/resource_allocator.py + multiagent/cbf_coupler.py
+
+ops/telemetry.py + ops/alerts.yml
+
+Config deltas to support these
+maintenance:
+  tasks: ["refuel", "cool_down", "repair"]
+  penalty_costs: {refuel: 0.1, repair: 0.3}
+adversarial:
+  enabled: true
+  method: "pgd"
+  epsilon: 0.05
+safety_probe:
+  enabled: true
+  explain: "json"
+multiagent:
+  resources: {food: 10, shelter: 5}
+  coupling: "cbf"
+telemetry:
+  prometheus: true
+  alert_thresholds:
+    near_boundary_density: 0.15
+
+Bottom line
+
+You’ve got the bones of persistence: homeostasis, shields, intrinsic motivation.
+You’ve added muscle: MPC, CVaR, ensembles, continual learning, OOD detection.
+What’s left is the infrastructure that turns this from “trainable agent” into a true persistence system:
+
+formal safety proofs,
+
+explicit maintenance,
+
+adversarial hardening,
+
+interpretability,
+
+multi-agent coexistence,
+
+ops governance.
+
+That’s the difference between “survive the episode” and “survive in the wild.”
 
 ***
 ### Progress Updates

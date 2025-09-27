@@ -6,7 +6,7 @@ from environments.grid_life import GridLifeEnv
 from agents.persist_agent import PersistAgent
 from components.homeostat import Homeostat
 from components.replay_buffer import ReplayBuffer
-from components.world_model import WorldModel
+from components.latent_world_model import LatentWorldModel
 from components.internal_model import InternalModel
 from components.viability_approximator import ViabilityApproximator
 from components.rnd import RND
@@ -42,12 +42,12 @@ def main():
     )
     print("✅ Homeostat initialized.")
 
-    print("\nInitializing world model...")
-    world_model = WorldModel(
+    print("\nInitializing latent world model...")
+    world_model = LatentWorldModel(
         obs_dim=env.observation_space_dim,
         act_dim=env.action_dim
     )
-    print("✅ World model initialized.")
+    print("✅ Latent world model initialized.")
 
     # Initialize RND component if specified in config
     if config['rewards']['intrinsic'] == 'rnd':

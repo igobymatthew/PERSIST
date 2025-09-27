@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Viability Configuration Schema",
+  "description": "Defines the structure for the 'viability' section of the agent's configuration.",
+  "type": "object",
+  "properties": {
+    "constraints": {
+      "description": "A list of string-based constraints defining the viable region.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "shield": {
+      "description": "Configuration for the safety shield.",
+      "type": "object",
+      "properties": {
+        "conf": {
+          "description": "Confidence level for the shield's safety projection.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "horizon": {
+          "description": "The prediction horizon for the shield (in steps).",
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["conf", "horizon"]
+    }
+  },
+  "required": ["constraints", "shield"]
+}

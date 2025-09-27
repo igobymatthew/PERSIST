@@ -1,0 +1,28 @@
+# Scenario: Rare Hazard
+# Evaluates the agent's ability to survive a rare but catastrophic event.
+
+env:
+  name: "GridLife-v0"
+  horizon: 512
+  # Adds a new parameter to introduce a rare hazard.
+  rare_hazard_probability: 0.005 # 0.5% chance per step of a major integrity hit
+  hazard_impact: -0.5            # The hazard reduces integrity by 0.5
+
+internal_state:
+  dims: ["energy", "temp", "integrity"]
+  mu: [0.7, 0.5, 0.9]
+  w:  [1.0, 0.5, 1.5]
+
+viability:
+  constraints:
+    - "energy >= 0.2"
+    - "temp in [0.3, 0.7]"
+    - "integrity >= 0.6"
+  shield:
+    conf: 0.97
+    horizon: 8
+
+rewards:
+  lambda_homeo: 0.7
+  lambda_intr:  0.3
+  intrinsic: "surprise"

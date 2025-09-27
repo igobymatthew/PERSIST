@@ -1,0 +1,28 @@
+# Scenario: Dynamics Drift
+# Evaluates the agent's ability to adapt to a sudden change in the
+# environment's dynamics (e.g., faster energy decay).
+
+env:
+  name: "GridLife-v0"
+  horizon: 512
+  # Adds a new parameter to modify the environment's internal dynamics.
+  energy_decay_multiplier: 1.5 # Energy decays 50% faster
+
+internal_state:
+  dims: ["energy", "temp", "integrity"]
+  mu: [0.7, 0.5, 0.9]
+  w:  [1.0, 0.5, 1.5]
+
+viability:
+  constraints:
+    - "energy >= 0.2"
+    - "temp in [0.3, 0.7]"
+    - "integrity >= 0.6"
+  shield:
+    conf: 0.97
+    horizon: 8
+
+rewards:
+  lambda_homeo: 0.7
+  lambda_intr:  0.3
+  intrinsic: "surprise"

@@ -12,6 +12,7 @@ from components.viability_approximator import ViabilityApproximator
 from components.rnd import RND
 from components.shield import Shield
 from components.safety_network import SafetyNetwork
+from components.demonstration_buffer import DemonstrationBuffer
 
 def main():
     print("--- Starting Training Script ---")
@@ -96,6 +97,18 @@ def main():
     )
     print("✅ Replay buffer initialized.")
 
+    # Initialize Demonstration Buffer if specified in config
+    demo_buffer = None
+    if 'demonstrations' in config and config['demonstrations'].get('filepath'):
+        print("\nInitializing demonstration buffer...")
+        demo_buffer = DemonstrationBuffer(
+            filepath=config['demonstrations']['filepath']
+        )
+        if len(demo_buffer) == 0:
+            print("⚠️  Demonstration buffer is empty. Check filepath in config.")
+        else:
+            print("✅ Demonstration buffer initialized.")
+
     print("\n--- ✅ All Components Initialized ---")
 
     lambda_homeo = config['rewards']['lambda_homeo']
@@ -165,6 +178,11 @@ def main():
                     # Update internal model
                     internal_model.train_model(batch['internal_state'], batch['action'], batch['next_internal_state'])
                     # Update viability approximator
+                    # First, train on safe examples from expert demonstrations
+                    if demo_buffer and len(demo_buffer) > 0:
+                        viability_approximator.train_on_demonstrations(demo_buffer, batch_size)
+
+                    # Then, refine on experience from the replay buffer
                     viability_approximator.train_model(batch['next_internal_state'], batch['viability_label'])
 
                     # Update Safety Network

@@ -307,3 +307,8 @@ The original framework is excellent but computationally heavy. Here are the key 
     *   The model is trained on reconstruction and dynamics prediction losses.
     *   The intrinsic reward is now calculated as the reconstruction error from the predicted latent state, providing a more robust surprise signal.
     *   Updated `train.py` to use the new latent model and switched `config.yaml` to use `"surprise"` reward.
+*   **2025-09-26 19:15:19.784624**: Implemented "Change 4" from the modernization plan by enabling the `ViabilityApproximator` to learn from safe demonstrations.
+    *   Created a `DemonstrationBuffer` (`components/demonstration_buffer.py`) to load and sample expert data.
+    *   Modified the `ViabilityApproximator` to include a `train_on_demonstrations` method, allowing it to pre-train on safe states.
+    *   Updated the main training loop (`train.py`) to use the new buffer and training method.
+    *   Added a `demonstrations` section to `config.yaml` to specify the data path.

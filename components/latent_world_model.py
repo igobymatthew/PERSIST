@@ -48,6 +48,7 @@ class LatentWorldModel(nn.Module):
     """A world model that learns a latent representation of the environment."""
     def __init__(self, obs_dim, act_dim, latent_dim=32, hidden_dim=128, lr=1e-3):
         super().__init__()
+        self.latent_dim = latent_dim
         self.encoder = Encoder(obs_dim, latent_dim, hidden_dim)
         self.transition = TransitionModel(latent_dim, act_dim, hidden_dim)
         self.decoder = Decoder(latent_dim, obs_dim, hidden_dim)

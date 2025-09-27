@@ -280,6 +280,11 @@ The original framework is excellent but computationally heavy. Here are the key 
 
 ***
 ### Progress Updates
+*   **2025-09-27T17:31:45+00:00**: Refactored the codebase for improved modularity, maintainability, and performance.
+    *   Introduced a `ComponentFactory` (`utils/factory.py`) to centralize the initialization of all framework components.
+    *   Created a `Trainer` class (`utils/trainer.py`) to encapsulate the main training loop and update logic, simplifying `train.py`.
+    *   Added device management for GPU acceleration, automatically moving models and tensors to a CUDA device if available.
+    *   Optimized the data pipeline by modifying the `ReplayBuffer` to return tensors directly on the correct device, reducing overhead.
 *   **2025-09-27T16:44:07+00:00**: Established a testing framework and added unit tests for core components.
     *   Created a `tests/` directory to house all test suites.
     *   Added `tests/test_components.py` with unit tests for `Homeostat`, `ViabilityApproximator`, and `InternalModel`.

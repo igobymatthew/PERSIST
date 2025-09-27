@@ -92,7 +92,7 @@ class CVAR_SAC(nn.Module):
         self.critic1_target.load_state_dict(self.critic1.state_dict())
         self.critic2_target.load_state_dict(self.critic2.state_dict())
 
-        self.log_alpha = torch.zeros(1, requires_grad=True)
+        self.log_alpha = nn.Parameter(torch.zeros(1))
         self.target_entropy = -torch.prod(torch.Tensor((act_dim,))).item()
 
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-3)
@@ -100,45 +100,31 @@ class CVAR_SAC(nn.Module):
         self.alpha_optimizer = optim.Adam([self.log_alpha], lr=1e-3)
 
         self.n_quantiles = n_quantiles
-        self.tau = tau  # Risk-aversion parameter for CVaR
+        self.tau = tau
 
-        # Define the quantiles (cumulative probabilities)
-        # These are the midpoints of the n_quantiles intervals
-        self.cumulative_probs = (torch.arange(n_quantiles, dtype=torch.float32) + 0.5) / n_quantiles
+        cumulative_probs = (torch.arange(n_quantiles, dtype=torch.float32) + 0.5) / n_quantiles
+        self.register_buffer('cumulative_probs', cumulative_probs)
 
     def get_action(self, obs, deterministic=False):
         with torch.no_grad():
-            obs_tensor = torch.as_tensor(obs, dtype=torch.float32)
+            device = next(self.actor.parameters()).device
+            obs_tensor = torch.as_tensor(obs, dtype=torch.float32, device=device)
             action, _ = self.actor(obs_tensor, deterministic, False)
-            return action.numpy()
+            return action.cpu().numpy()
 
     def quantile_regression_loss(self, current_quantiles, target_quantiles):
         """
         Calculates the quantile regression loss.
         """
-        # Ensure target_quantiles are detached from the graph
         target_quantiles = target_quantiles.detach()
-        # Reshape for broadcasting
-        # current_quantiles: (batch_size, n_quantiles)
-        # target_quantiles: (batch_size, n_quantiles)
-        # pairwise_delta: (batch_size, n_quantiles, n_quantiles)
         pairwise_delta = target_quantiles.unsqueeze(-2) - current_quantiles.unsqueeze(-1)
         abs_pairwise_delta = torch.abs(pairwise_delta)
-        # Huber loss
         huber_loss = torch.where(abs_pairwise_delta > 1.0, abs_pairwise_delta - 0.5, pairwise_delta**2 * 0.5)
-
-        # Quantile regression loss
-        # The (cumulative_probs.view(1, -1) - (pairwise_delta < 0).float()) term is the key part
-        # It weights errors based on the quantile
         loss = torch.abs(self.cumulative_probs.view(1, -1) - (pairwise_delta < 0).float()) * huber_loss
         return loss.mean()
 
     def update(self, data, gamma=0.99, polyak=0.995):
-        obs = torch.as_tensor(data['obs'], dtype=torch.float32)
-        act = torch.as_tensor(data['action'], dtype=torch.float32)
-        rew = torch.as_tensor(data['reward'], dtype=torch.float32)
-        next_obs = torch.as_tensor(data['next_obs'], dtype=torch.float32)
-        done = torch.as_tensor(data['done'], dtype=torch.float32)
+        obs, act, rew, next_obs, done = data['obs'], data['action'], data['reward'], data['next_obs'], data['done']
 
         alpha = torch.exp(self.log_alpha).detach()
 

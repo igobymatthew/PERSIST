@@ -280,6 +280,11 @@ The original framework is excellent but computationally heavy. Here are the key 
 
 ***
 ### Progress Updates
+*   **2025-09-27T14:08:18+00:00**: Implemented the "Risk-sensitive RL" extension.
+    *   Created a `CVAR_SAC` agent (`agents/cvar_sac.py`) that optimizes the Conditional Value at Risk (CVaR) of the return distribution, making the agent risk-averse.
+    *   Implemented a `DistributionalCritic` that learns the return distribution using quantile regression.
+    *   The actor's objective is to maximize the CVaR of the critic's predicted distribution.
+    *   The feature is configurable in `config.yaml` via the `risk_sensitive` section, allowing control over risk-aversion.
 *   **2025-09-27T13:59:05+00:00**: Implemented the "Adaptive setpoints" extension.
     *   Created a `MetaLearner` component (`components/meta_learner.py`) to dynamically adjust homeostatic setpoints (`mu`) based on long-term performance.
     *   Integrated the `MetaLearner` into the main training loop (`train.py`), allowing the agent to adapt its internal targets.

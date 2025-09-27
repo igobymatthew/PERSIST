@@ -10,6 +10,7 @@ from components.latent_world_model import LatentWorldModel
 from components.internal_model import InternalModel
 from components.viability_approximator import ViabilityApproximator
 from components.rnd import RND
+from components.empowerment import Empowerment
 from components.shield import Shield
 from components.safety_network import SafetyNetwork
 from components.demonstration_buffer import DemonstrationBuffer
@@ -108,11 +109,30 @@ def main():
     )
     print("✅ Latent world model initialized.")
 
-    # Initialize RND component if specified in config
-    if config['rewards']['intrinsic'] == 'rnd':
+    # Initialize Intrinsic Reward module based on config
+    intrinsic_reward_module = None
+    intrinsic_method = config['rewards']['intrinsic']
+    if intrinsic_method == 'rnd':
         print("\nInitializing RND module...")
-        rnd_model = RND(obs_dim=env.observation_space_dim)
+        intrinsic_reward_module = RND(obs_dim=env.observation_space_dim)
         print("✅ RND module initialized.")
+    elif intrinsic_method == 'empowerment':
+        print("\nInitializing Empowerment module...")
+        empowerment_config = config.get('empowerment', {})
+        intrinsic_reward_module = Empowerment(
+            state_dim=world_model.latent_dim,
+            action_dim=env.action_dim,
+            k=empowerment_config.get('k', 4),
+            hidden_dim=empowerment_config.get('hidden_dim', 256),
+            lr=empowerment_config.get('lr', 1e-4)
+        )
+        print("✅ Empowerment module initialized.")
+    elif intrinsic_method == 'surprise':
+        print("\nUsing world model surprise as intrinsic reward.")
+    else:
+        print(f"⚠️ Unknown intrinsic reward method: {intrinsic_method}. Defaulting to 'surprise'.")
+        config['rewards']['intrinsic'] = 'surprise'
+
 
     print("\nInitializing internal model...")
     internal_model = InternalModel(
@@ -234,17 +254,42 @@ def main():
                     obs_tensor = torch.as_tensor(external_obs, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
                     act_tensor = torch.as_tensor(safe_action, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
                     predicted_state, next_estimator_hidden_state = state_estimator(obs_tensor, act_tensor, estimator_hidden_state)
-                    estimated_next_internal_state = predicted_state.squeeze(0)
+                    estimated_next_internal_state = predicted_state.squeeze()
             else:
                 estimated_next_internal_state = torch.as_tensor(true_next_internal_state, dtype=torch.float32)
                 next_estimator_hidden_state = None
 
             # 7. Calculate rewards
             homeo_reward = homeostat.reward(estimated_next_internal_state.detach().numpy())
-            if config['rewards']['intrinsic'] == 'rnd':
-                intr_reward = rnd_model.compute_intrinsic_reward(external_obs)
-            else:
+
+            intrinsic_method = config['rewards']['intrinsic']
+            if intrinsic_method == 'rnd':
+                intr_reward = intrinsic_reward_module.compute_intrinsic_reward(external_obs)
+            elif intrinsic_method == 'empowerment':
+                with torch.no_grad():
+                    # 1. Get current latent state
+                    obs_tensor = torch.as_tensor(external_obs, dtype=torch.float32).unsqueeze(0)
+                    z_t = world_model.encoder(obs_tensor)
+
+                    # 2. Sample a k-step action sequence
+                    k = intrinsic_reward_module.k
+                    action_sequence = torch.stack([
+                        torch.from_numpy(env.action_space.sample()) for _ in range(k)
+                    ]).float().unsqueeze(0)  # Add batch dimension
+
+                    # 3. Rollout world model to get future latent state
+                    current_z = z_t
+                    for i in range(k):
+                        action_for_rollout = action_sequence[:, i, :]
+                        current_z = world_model.transition(current_z, action_for_rollout)
+                    z_t_plus_k = current_z
+
+                    # 4. Compute reward
+                    intr_reward_tensor = intrinsic_reward_module.compute_reward(z_t, action_sequence, z_t_plus_k)
+                    intr_reward = intr_reward_tensor.item()
+            else:  # 'surprise'
                 intr_reward = world_model.compute_surprise_reward(external_obs, safe_action, next_external_obs)
+
             total_reward = task_reward + lambda_homeo * homeo_reward + lambda_intr * intr_reward
 
             # 8. Store experience
@@ -306,10 +351,31 @@ def main():
                         # If fully observable, the "estimate" is the ground truth
                         estimated_internal_state_seq = true_internal_state_seq
 
-                    # 3. Update world model and RND (using first transition for simplicity)
+                    # 3. Update world model and intrinsic reward module (using first transition for simplicity)
                     world_model.train_model(obs_seq[:, 0], act_seq[:, 0], next_obs_seq[:, 0])
-                    if config['rewards']['intrinsic'] == 'rnd':
-                        rnd_model.train_predictor(obs_seq[:, 0])
+                    intrinsic_method = config['rewards']['intrinsic']
+                    if intrinsic_method == 'rnd':
+                        intrinsic_reward_module.train_predictor(obs_seq[:, 0])
+                    elif intrinsic_method == 'empowerment':
+                        with torch.no_grad():
+                            # Generate training data for the discriminator on the fly
+                            z_batch = world_model.encoder(obs_seq[:, 0])
+                            k = intrinsic_reward_module.k
+                            action_sequences_batch = torch.stack([
+                                torch.from_numpy(np.array([env.action_space.sample() for _ in range(k)]))
+                                for _ in range(batch_size)
+                            ]).float()
+
+                            # Rollout the world model to get the batch of future latent states
+                            current_z_batch = z_batch
+                            for i in range(k):
+                                actions_for_rollout = action_sequences_batch[:, i, :]
+                                current_z_batch = world_model.transition(current_z_batch, actions_for_rollout)
+                            z_future_batch = current_z_batch
+
+                        # Update the empowerment discriminator
+                        intrinsic_reward_module.update(z_batch.detach(), action_sequences_batch, z_future_batch.detach())
+
 
                     # 4. Update safety models using ESTIMATED states for robustness
                     # Flatten sequences for batch training

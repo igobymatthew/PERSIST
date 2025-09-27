@@ -280,6 +280,11 @@ The original framework is excellent but computationally heavy. Here are the key 
 
 ***
 ### Progress Updates
+*   **2025-09-27T06:09:46+00:00**: Implemented the 'Empowerment' intrinsic reward module as described in the framework's core concepts.
+    *   Created a new `Empowerment` component (`components/empowerment.py`) that uses a contrastive discriminator (InfoNCE) to calculate intrinsic rewards.
+    *   The component is trained on-the-fly using rollouts from the `LatentWorldModel`.
+    *   Updated `train.py` to support 'empowerment' as a configurable intrinsic reward method.
+    *   Added an `empowerment` section to `config.yaml` for hyperparameters.
 *   **2025-09-26 12:23:24.130399**: Completed Phase 2 of the implementation plan by integrating a surprise-based intrinsic reward.
     *   Created a `WorldModel` component (`components/world_model.py`) using PyTorch to predict the next observation.
     *   The prediction error (MSE) of the `WorldModel` is used as the surprise reward (`r_intr`).

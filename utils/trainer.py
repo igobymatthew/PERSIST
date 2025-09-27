@@ -18,6 +18,7 @@ class Trainer:
         self.amortize_after_steps = train_config.get('amortize_after_steps', 20000)
         self.num_episodes = self.config.get('num_episodes', 500)
         self.sequence_length = self.config.get('state_estimator', {}).get('sequence_length', 16)
+        self.consolidate_every = self.config.get('continual', {}).get('consolidate_every', 5000)
 
         self.is_partially_observable = self.config.get('env', {}).get('partial_observability', False)
 
@@ -156,6 +157,10 @@ class Trainer:
                 violations = info.get('internal_state_violation', np.zeros(self.env.internal_dim))
                 self.replay_buffer.store(external_obs, safe_action, unsafe_action, total_reward, next_external_obs, done, true_internal_state, true_next_internal_state, viability_label, violations)
 
+                # Add state to rehearsal buffer for EWC
+                if self.rehearsal_buffer:
+                    self.rehearsal_buffer.add(obs_for_agent)
+
                 total_task_reward += task_reward
                 total_intr_reward += intr_reward
 
@@ -178,10 +183,14 @@ class Trainer:
                     print(f"\n--- Switching shield to AMORTIZED mode at step {total_steps} ---")
                     self.shield.mode = 'amortized'
 
-                # 10. Update models
+                # 10. Update models and continual learning
                 if total_steps % self.update_every == 0 and len(self.replay_buffer) > max(self.batch_size, self.sequence_length):
                     for _ in range(self.update_every):
-                        self._update_models()
+                        latest_policy_entropy = self._update_models()
+
+                # 11. Consolidate for EWC if enabled
+                if self.continual_learning_manager and total_steps % self.consolidate_every == 0 and total_steps > 0:
+                    self.continual_learning_manager.consolidate(self.rehearsal_buffer)
 
             # End of episode
             if self.meta_learner:
@@ -284,4 +293,11 @@ class Trainer:
 
         # 5. Update agent
         batch = self.replay_buffer.sample_batch(self.batch_size)
-        self.agent.learn(data=batch)
+
+        # Calculate EWC penalty if continual learning is enabled
+        ewc_penalty = 0.0
+        if self.continual_learning_manager:
+            ewc_penalty = self.continual_learning_manager.penalty()
+
+        policy_entropy = self.agent.learn(data=batch, ewc_penalty=ewc_penalty)
+        return policy_entropy

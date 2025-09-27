@@ -302,3 +302,8 @@ The original framework is excellent but computationally heavy. Here are the key 
     *   Modified the `Shield` to operate in two modes: a `search` mode for data collection and an `amortized` mode that uses the trained `SafetyNetwork` for fast projection.
     *   Updated the main training loop (`train.py`) to train the `SafetyNetwork` and switch the shield's mode after a configured number of steps.
     *   Added a `safety_network` section to `config.yaml` to control the new component's hyperparameters.
+*   **2025-09-26 18:52:38.574183**: Implemented "Change 1" from the modernization plan by replacing the simple world model with a latent dynamics model.
+    *   Created a `LatentWorldModel` (`components/latent_world_model.py`) with separate `Encoder`, `TransitionModel`, and `Decoder` modules.
+    *   The model is trained on reconstruction and dynamics prediction losses.
+    *   The intrinsic reward is now calculated as the reconstruction error from the predicted latent state, providing a more robust surprise signal.
+    *   Updated `train.py` to use the new latent model and switched `config.yaml` to use `"surprise"` reward.

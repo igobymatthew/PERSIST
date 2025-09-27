@@ -35,4 +35,4 @@ class ViabilityApproximator(nn.Module):
         with torch.no_grad():
             x = torch.as_tensor(x, dtype=torch.float32).unsqueeze(0)
             margin = self(x)
-        return margin.squeeze(0).item()
+        return margin.squeeze(0)

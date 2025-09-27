@@ -15,6 +15,7 @@ from components.shield import Shield
 from components.safety_network import SafetyNetwork
 from components.demonstration_buffer import DemonstrationBuffer
 from components.state_estimator import StateEstimator
+from components.meta_learner import MetaLearner
 
 class CurriculumScheduler:
     def __init__(self, config):
@@ -96,8 +97,22 @@ def main():
     print("✅ Agent initialized.")
 
     print("\nInitializing homeostat...")
+    # Initialize MetaLearner if enabled
+    meta_learner_config = config.get('meta_learning', {})
+    meta_learner = None
+    initial_mu = config['internal_state']['mu']
+    if meta_learner_config.get('enabled', False):
+        print("\nInitializing MetaLearner...")
+        meta_learner = MetaLearner(
+            initial_mu=initial_mu,
+            learning_rate=meta_learner_config.get('learning_rate', 0.01),
+            update_frequency=meta_learner_config.get('update_frequency', 100)
+        )
+        print("✅ MetaLearner initialized.")
+        initial_mu = meta_learner.get_setpoints()
+
     homeostat = Homeostat(
-        mu=config['internal_state']['mu'],
+        mu=initial_mu,
         w=config['internal_state']['w']
     )
     print("✅ Homeostat initialized.")
@@ -292,6 +307,11 @@ def main():
 
             total_reward = task_reward + lambda_homeo * homeo_reward + lambda_intr * intr_reward
 
+            # Update MetaLearner (if enabled)
+            if meta_learner is not None:
+                # Use the true state for a cleaner signal on environmental adaptation
+                meta_learner.step(total_reward, true_next_internal_state)
+
             # 8. Store experience
             viability_label = 1.0 if not (done and info.get('violation', False)) else 0.0
             replay_buffer.store(external_obs, safe_action, unsafe_action, total_reward, next_external_obs, done, true_internal_state, true_next_internal_state, viability_label)
@@ -410,6 +430,11 @@ def main():
                     agent_batch['done'] = done_seq[:, -1].detach().numpy()
 
                     agent.learn(data=agent_batch)
+
+        # Handle end-of-episode updates for the meta-learner
+        if meta_learner is not None:
+            meta_learner.episode_end()
+            homeostat.mu = meta_learner.get_setpoints()
 
         print(f"Episode {episode + 1}: Steps = {ep_len}, Task Reward = {total_task_reward:.2f}, "
               f"Homeo Reward = {total_homeo_reward:.2f}, Intr Reward = {total_intr_reward:.2f}")

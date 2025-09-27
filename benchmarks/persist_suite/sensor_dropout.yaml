@@ -1,0 +1,30 @@
+# Scenario: Sensor Dropout
+# Evaluates the agent's ability to persist when one of its sensors
+# intermittently fails.
+
+env:
+  name: "GridLife-v0"
+  horizon: 512
+  # Adds a new parameter to the environment to simulate sensor failure.
+  sensor_dropout_rate: 0.1 # 10% chance for a sensor reading to be zeroed out
+  faulty_sensor_idx: 1   # The temperature sensor is faulty
+
+# The rest of the configuration can remain the same as the base config.
+internal_state:
+  dims: ["energy", "temp", "integrity"]
+  mu: [0.7, 0.5, 0.9]
+  w:  [1.0, 0.5, 1.5]
+
+viability:
+  constraints:
+    - "energy >= 0.2"
+    - "temp in [0.3, 0.7]"
+    - "integrity >= 0.6"
+  shield:
+    conf: 0.97
+    horizon: 8
+
+rewards:
+  lambda_homeo: 0.7
+  lambda_intr:  0.3
+  intrinsic: "surprise"

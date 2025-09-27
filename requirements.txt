@@ -3,3 +3,4 @@ numpy
 PyYAML
 cvxpy
 osqp
+jsonschema

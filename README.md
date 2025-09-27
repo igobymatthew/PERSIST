@@ -280,6 +280,10 @@ The original framework is excellent but computationally heavy. Here are the key 
 
 ***
 ### Progress Updates
+*   **2025-09-27T16:44:07+00:00**: Established a testing framework and added unit tests for core components.
+    *   Created a `tests/` directory to house all test suites.
+    *   Added `tests/test_components.py` with unit tests for `Homeostat`, `ViabilityApproximator`, and `InternalModel`.
+    *   These tests verify the correctness of reward calculation, model training, and prediction logic, improving the project's robustness and maintainability.
 *   **2025-09-27T08:11:30+00:00**: Implemented a comprehensive evaluation and metrics logging system.
     *   Created an `Evaluator` class in `utils/evaluation.py` to handle logging.
     *   The system now tracks and logs key metrics from the `README.md` file, including survival time, constraint satisfaction rates, and policy entropy.

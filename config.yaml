@@ -24,7 +24,12 @@ train:
   gamma: 0.995
   update_every: 64
   model_rollouts: 5
-  amortize_after_steps: 20000 # Steps before switching to amortized shield
+  amortize_after_steps: 20000
+
+risk_sensitive:
+  enabled: false # Set to true to use CVAR-SAC
+  n_quantiles: 32
+  tau: 0.1 # Risk level for CVaR (0.0 to 1.0). Lower is more risk-averse.
 
 curriculum:
   enabled: true

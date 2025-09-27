@@ -92,7 +92,8 @@ def main():
     agent = PersistAgent(
         obs_dim=agent_obs_dim,
         act_dim=env.action_dim,
-        act_limit=env.act_limit
+        act_limit=env.act_limit,
+        risk_sensitive_config=config.get('risk_sensitive')
     )
     print("✅ Agent initialized.")
 

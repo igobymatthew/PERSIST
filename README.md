@@ -280,6 +280,10 @@ The original framework is excellent but computationally heavy. Here are the key 
 
 ***
 ### Progress Updates
+*   **2025-09-27T13:59:05+00:00**: Implemented the "Adaptive setpoints" extension.
+    *   Created a `MetaLearner` component (`components/meta_learner.py`) to dynamically adjust homeostatic setpoints (`mu`) based on long-term performance.
+    *   Integrated the `MetaLearner` into the main training loop (`train.py`), allowing the agent to adapt its internal targets.
+    *   Added a `meta_learning` section to `config.yaml` to control this feature.
 *   **2025-09-27T06:09:46+00:00**: Implemented the 'Empowerment' intrinsic reward module as described in the framework's core concepts.
     *   Created a new `Empowerment` component (`components/empowerment.py`) that uses a contrastive discriminator (InfoNCE) to calculate intrinsic rewards.
     *   The component is trained on-the-fly using rollouts from the `LatentWorldModel`.

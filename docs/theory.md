@@ -83,6 +83,11 @@ R_{\text{intr}} = -\text{NLL}{\phi}(o{t+1}|s_t,a_t) - \beta |x_{t+1}-\mu|_2^2.
 Viability learning Label states using true constraints when available; otherwise, treat boundary hits (failures or alarms) as negative and far-from-boundary samples as positive; train \hat{\mathcal{V}}_\psi with focal loss.
 Maintain a near-boundary buffer using high-margin uncertainty (e.g., 0 < m(x) < \epsilon) to constantly refine the frontier.
 
+Implementation note: the codebase now includes a dedicated `NearBoundaryBuffer` (`buffers/near_boundary.py`) that records
+internal states whose predicted safety probabilities fall inside a configurable band. Configure the band via
+`viability.near_boundary_buffer` (probability bounds and capacity) and the trainer will oversample these ambiguous points when
+updating the `ViabilityApproximator`, yielding sharper decision boundaries without risking catastrophic failures.
+
 API sketch (PyTorch-ish) class Homeostat: def init(self, mu, w): self.mu, self.w = mu, w def reward(self, x): return -((x - self.mu)**2 * self.w).sum(-1)
 class ViabilityApprox(nn.Module): def forward(self, x): # returns margin m(x) return self.net(x)
 

@@ -166,6 +166,14 @@ class Trainer:
                     model.train_on_demonstrations(self.demonstration_buffer, self.batch_size)
                 model.train_model(flat_est_internal, flat_viability_label)
 
+        if self.near_boundary_buffer and len(self.near_boundary_buffer) > 0:
+            nb_states, nb_labels = self.near_boundary_buffer.sample(self.batch_size)
+            if nb_states.numel() > 0:
+                self.viability_approximator.train_model(nb_states, nb_labels)
+                if self.viability_ensemble:
+                    for model in self.viability_ensemble:
+                        model.train_model(nb_states, nb_labels)
+
         if self.constraint_manager:
             self.constraint_manager.update(flat_violations)
 

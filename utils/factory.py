@@ -14,6 +14,7 @@ from agents.shared_sac import SharedSAC
 from components.homeostat import Homeostat
 from components.replay_buffer import ReplayBuffer
 from buffers.replay_ma import ReplayMA
+from buffers.near_boundary import NearBoundaryBuffer, NearBoundaryConfig
 from multiagent.resource_allocator import ResourceAllocator
 from multiagent.cbf_coupler import CBFCoupler
 from components.latent_world_model import LatentWorldModel
@@ -210,6 +211,25 @@ class ComponentFactory:
             device=self.device
         )
         print("✅ Replay buffer initialized.")
+        return buffer
+
+    def create_near_boundary_buffer(self, env):
+        nb_config = self.config.get('viability', {}).get('near_boundary_buffer', {})
+        if not nb_config.get('enabled', False):
+            return None
+
+        print("Initializing near-boundary buffer...")
+        config = NearBoundaryConfig(
+            capacity=nb_config.get('capacity', 4096),
+            margin_low=nb_config.get('margin_low', 0.35),
+            margin_high=nb_config.get('margin_high', 0.65)
+        )
+        buffer = NearBoundaryBuffer(
+            state_dim=env.internal_dim,
+            device=self.device,
+            config=config
+        )
+        print("✅ Near-boundary buffer initialized.")
         return buffer
 
     def create_demonstration_buffer(self):
@@ -549,6 +569,7 @@ class ComponentFactory:
             intrinsic_module = self.create_intrinsic_reward_module(env, world_model)
             state_estimator = self.create_state_estimator(env)
             replay_buffer = self.create_replay_buffer(env)
+            near_boundary_buffer = self.create_near_boundary_buffer(env)
             rehearsal_buffer = self.create_rehearsal_buffer()
             demo_buffer = self.create_demonstration_buffer()
             evaluator = self.create_evaluator()
@@ -565,7 +586,9 @@ class ComponentFactory:
                 'viability_ensemble': viability_ensemble,
                 'intrinsic_reward_module': intrinsic_module,
                 'safety_network': safety_network, 'shield': shield,
-                'replay_buffer': replay_buffer, 'demonstration_buffer': demo_buffer,
+                'replay_buffer': replay_buffer,
+                'near_boundary_buffer': near_boundary_buffer,
+                'demonstration_buffer': demo_buffer,
                 'rehearsal_buffer': rehearsal_buffer,
                 'state_estimator': state_estimator, 'meta_learner': meta_learner,
                 'constraint_manager': constraint_manager, 'ood_detector': ood_detector,

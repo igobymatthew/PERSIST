@@ -1,42 +1,45 @@
 from utils.factory import ComponentFactory
+from systems.coordinator import ExperimentCoordinator
+from systems.persistence import PersistenceManager
 from utils.trainer import Trainer
 from utils.robust_trainer import RobustTrainer
 from utils.multi_agent_trainer import MultiAgentTrainer
+import os
 
 def main():
     """
     Main entry point for the training script.
-
-    This function orchestrates the training process by:
-    1. Initializing the ComponentFactory, which handles component creation.
-    2. Creating all components based on the config.
-    3. Initializing the appropriate Trainer (single-agent, robust, or multi-agent).
-    4. Starting the training loop.
     """
-    print("--- Starting PERSIST Framework Training ---")
+    print("--- Starting PERSIST Framework ---")
 
-    # 1. Initialize the factory.
+    # 1. Initialize the factory
     factory = ComponentFactory(config_path="config.yaml")
 
-    # 2. Create all components.
-    components = factory.get_all_components()
+    # 2. Set up persistence
+    config = factory.config
+    log_dir = config.get('logging', {}).get('log_dir', 'logs')
+    checkpoint_dir = os.path.join(log_dir, 'checkpoints')
+    persistence_manager = PersistenceManager(checkpoint_dir)
 
-    # 3. Initialize the appropriate trainer.
-    config = components['config']
+    # 3. Create all components
+    components = factory.get_all_components()
+    components['config'] = config
+
+    # 4. Initialize the appropriate trainer
     if config.get('multiagent', {}).get('enabled', False):
-        print("--- Initializing Multi-Agent Trainer ---")
         trainer = MultiAgentTrainer(components)
     elif config.get('adversarial', {}).get('enabled', False):
-        print("--- Initializing Robust Single-Agent Trainer ---")
         trainer = RobustTrainer(components)
     else:
-        print("--- Initializing Standard Single-Agent Trainer ---")
         trainer = Trainer(components)
+    components['trainer'] = trainer
 
-    # 4. Start the training process.
+    # 5. Initialize the coordinator
+    coordinator = ExperimentCoordinator(components, persistence_manager)
+
+    # 6. Start the training process
     try:
-        trainer.run()
-        print("\n--- Training Finished ---")
+        coordinator.run()
     except KeyboardInterrupt:
         print("\n--- Training Interrupted by User ---")
     except Exception as e:

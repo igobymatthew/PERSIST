@@ -146,20 +146,25 @@ class GridLifeEnv:
 
         # Check for constraint violations using dynamic constraints
         done = False
-        info = {'violation': False}
-        for c in self.constraints:
+        info = {}
+        violations = np.zeros(self.num_constraints)
+        for i, c in enumerate(self.constraints):
             val = self.internal_state[c['dim_idx']]
             op = c['op']
             threshold = c['val']
 
+            is_violated = False
             if op == '>=' and not val >= threshold:
-                done = True
+                is_violated = True
             elif op == '<=' and not val <= threshold:
+                is_violated = True
+
+            if is_violated:
+                violations[i] = 1.0
                 done = True
 
-            if done:
-                info['violation'] = True
-                break
+        info['violation'] = done
+        info['internal_state_violation'] = violations
 
         # If partial observability is on, include the true internal state in the info dict
         if self.partial_observability:

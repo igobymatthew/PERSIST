@@ -1,6 +1,6 @@
 import torch
 import itertools
-from components.cbf_layer import qp_solver
+from utils.solvers import qp_solver
 
 class CBFCoupler:
     """

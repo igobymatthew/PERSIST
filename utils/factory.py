@@ -193,6 +193,7 @@ class ComponentFactory:
             obs_dim=env.observation_space_dim,
             action_dim=env.action_dim,
             internal_dim=env.internal_dim,
+            num_constraints=env.num_constraints,
             device=self.device
         )
         print("✅ Replay buffer initialized.")
@@ -248,10 +249,14 @@ class ComponentFactory:
             print("Constraint manager is disabled in config.")
             return None
 
+        # Extract the mapping from constraint index to state dimension index
+        constraint_dim_indices = [c['dim_idx'] for c in env.constraints]
+
         manager = ConstraintManager(
-            num_constraints=env.internal_dim,
-            target_violation_rate=chance_config.get('target_violation_rate', 0.01),
-            dual_lr=chance_config.get('dual_lr', 5e-4),
+            num_constraints=env.num_constraints,
+            constraint_dim_indices=constraint_dim_indices,
+            target_violation_rate=float(chance_config.get('target_violation_rate', 0.01)),
+            dual_lr=float(chance_config.get('dual_lr', 5e-4)),
             device=self.device
         )
         print("✅ Constraint manager initialized.")

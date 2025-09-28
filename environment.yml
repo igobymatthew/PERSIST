@@ -1,0 +1,19 @@
+name: persist
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - pytorch
+  - numpy
+  - pyyaml
+  - cvxpy
+  - osqp
+  - jsonschema
+  - hypothesis
+  - gymnasium
+  - prometheus-client
+  - questionary
+  - pytest

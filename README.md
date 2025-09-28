@@ -1,6 +1,42 @@
 # PERSIST
 A ml/ai framework for persistence. 
 Here’s a minimal-but-complete framework you can implement. It fuses (1) explicit homeostasis, (2) a viability kernel/shield, and (3) intrinsic persistence (empowerment or surprise minimization) on top of ordinary task reward.
+
+## Getting Started
+
+This project includes an interactive command-line interface (CLI) to simplify running experiments.
+
+### 1. Environment Setup
+
+It is recommended to use Conda to manage dependencies.
+
+1.  **Create the Conda environment** from the `environment.yml` file:
+    ```bash
+    conda env create -f environment.yml
+    ```
+2.  **Activate the environment**:
+    ```bash
+    conda activate persist
+    ```
+
+### 2. Running an Experiment
+
+Once the environment is activated, you can start the interactive CLI:
+
+```bash
+python main.py
+```
+
+The CLI will guide you through several choices to configure your experiment:
+- **Standard single-agent experiment**: A basic setup, ideal for beginners.
+- **Multi-agent experiment**: A setup for running simulations with multiple agents.
+- **Robust agent experiment**: A setup that includes adversarial training and advanced safety features.
+- **Custom experiment**: Allows you to pick and choose features for a custom configuration.
+- **Run from `config.yaml`**: The original behavior, which runs the experiment directly from the `config.yaml` file without any modifications.
+
+After you make your selections, the final configuration will be displayed for confirmation before the experiment begins.
+
+---
 PERSIST: A Persistence-Centric Agent Framework
 1) Core concepts
 State s_t = [o_t, x_t]: external observation o_t + internal/homeostatic variables x_t (e.g., energy, temperature, integrity).
@@ -439,6 +475,9 @@ You’re stable again. The most productive “next” is automating tests + CI, 
 
 
 ### Progress Updates
+*   **2025-09-28T09:14:00+00:00**: Improved developer experience by simplifying setup and usage.
+    *   Added an `environment.yml` file to allow for easy environment setup using Conda.
+    *   Created a "Getting Started" section in `README.md` to document the environment setup process and the existing interactive CLI.
 *   **2025-09-28T08:44:41+00:00**: Implemented an interactive command-line interface (CLI) in `main.py`.
     *   The new CLI guides users through selecting an experiment type (e.g., standard single-agent, multi-agent, robust agent) or building a custom configuration.
     *   This eliminates the need for manual `config.yaml` editing for most use cases, making the framework more user-friendly.

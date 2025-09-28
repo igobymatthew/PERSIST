@@ -168,9 +168,10 @@ def main():
         config = generate_custom_config()
     elif "from `config.yaml`" in choice:
         print("--- Running directly from `config.yaml` ---")
-        # In this case, we don't pass a config dict, so the factory loads it.
-        factory = ComponentFactory(config_path="config.yaml")
-        config = factory.config
+        # Load the config directly to avoid instantiating the factory twice.
+        # The factory will be created once inside run_experiment.
+        with open("config.yaml", 'r') as f:
+            config = yaml.safe_load(f)
 
     if config:
         # Pretty print the final config for user confirmation

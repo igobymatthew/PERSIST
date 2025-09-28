@@ -435,7 +435,7 @@ class ComponentFactory:
         print("✅ Multi-agent environment initialized.")
         return env
 
-    def create_ma_replay_.pybuffer(self, env):
+    def create_ma_replay_buffer(self, env):
         print("Initializing multi-agent replay buffer...")
         training_cfg = self.config['training']
         buffer = ReplayMA(

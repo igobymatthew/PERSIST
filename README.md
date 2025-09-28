@@ -519,6 +519,12 @@ That’s the difference between “survive the episode” and “survive in the 
 
 ***
 ### Progress Updates
+*   **2025-09-27T18:49:00+00:00**: Implemented the "Governance + telemetry" feature.
+    *   Created an `ops/` directory for operational components.
+    *   Added a `TelemetryManager` (`ops/telemetry.py`) that uses `prometheus-client` to expose key training metrics (e.g., survival time, constraint violations, shield trigger rate) via an HTTP endpoint.
+    *   Defined a set of sample alerting rules in `ops/alerts.yml` for use with a Prometheus server.
+    *   Integrated the `TelemetryManager` into the main training loop (`systems/coordinator.py` and `utils/trainer.py`) to provide real-time monitoring of the agent's performance and stability.
+    *   Added a `telemetry` section to `config.yaml` to enable and configure the feature.
 *   **2025-09-27T15:19:51+00:00**: Implemented a multi-agent persistence architecture (CTDE).
     *   Created `MultiAgentGridLifeEnv` with a dictionary-based API for managing multiple agents in a shared world.
     *   Implemented a `SharedSAC` agent using parameter sharing and role embeddings for efficient homogeneous multi-agent learning.

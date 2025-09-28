@@ -26,12 +26,18 @@ class Trainer:
     def get_action(self, external_obs, obs_for_agent, state_for_components, total_steps):
         """
         Selects an action, applying OOD detection, shielding, and safety layers.
+        Returns the safe action, the original unsafe action, and an info dictionary.
         """
         is_ood = False
+        cbf_intervened = False
+        info = {}
+
         if self.ood_detector:
             state_tensor = torch.as_tensor(state_for_components, dtype=torch.float32, device=self.device).unsqueeze(0)
             if self.ood_detector.is_ood(state_tensor).any():
                 is_ood = True
+
+        info['ood_detected'] = is_ood
 
         if is_ood:
             safe_action = self.safe_fallback_policy.get_action().squeeze(0).cpu().numpy()
@@ -54,10 +60,15 @@ class Trainer:
                 linearized_dynamics = self.dynamics_adapter.get_linearized_dynamics(state_tensor, action_tensor)
                 cbf_safe_action_tensor = self.cbf_layer(action_tensor, state_tensor, linearized_dynamics)
                 safe_action = cbf_safe_action_tensor.cpu().detach().numpy()
+                if not np.allclose(shielded_action, safe_action):
+                    cbf_intervened = True
             else:
                 safe_action = shielded_action
 
-        return safe_action, unsafe_action
+        info['shield_triggered'] = not np.allclose(unsafe_action, safe_action)
+        info['cbf_intervened'] = cbf_intervened
+
+        return safe_action, unsafe_action, info
 
     def calculate_intrinsic_reward(self, obs, act, next_obs):
         intrinsic_method = self.config['rewards']['intrinsic']
@@ -189,4 +200,16 @@ class Trainer:
             ewc_penalty = self.continual_learning_manager.penalty()
 
         policy_entropy = self.agent.learn(data=agent_data, ewc_penalty=ewc_penalty)
+
+        if hasattr(self, 'telemetry_manager') and self.telemetry_manager:
+            with torch.no_grad():
+                margins = self.viability_approximator.get_margin(flat_est_internal)
+                near_boundary_mask = (margins > 0.1) & (margins < 0.9)
+                near_boundary_samples_count = near_boundary_mask.sum().item()
+
+            self.telemetry_manager.update_on_model_update(
+                policy_entropy=policy_entropy,
+                near_boundary_samples_count=near_boundary_samples_count
+            )
+
         return policy_entropy

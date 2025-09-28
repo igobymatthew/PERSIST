@@ -212,3 +212,7 @@ resource_allocator:
   alpha: 1.0
   tax: 0.02
   conflict_resolution: "priority"
+
+telemetry:
+  enabled: true
+  port: 8000

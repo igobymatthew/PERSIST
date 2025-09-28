@@ -48,6 +48,9 @@ class ExperimentCoordinator:
         if self.persistence_manager and self.persistence_manager.has_checkpoints():
             self._load_checkpoint()
 
+        if hasattr(self, 'telemetry_manager') and self.telemetry_manager:
+            self.telemetry_manager.start_server()
+
         lambda_intr = self.config['rewards']['lambda_intr']
         lambda_homeo = self.config['rewards']['lambda_homeo'] if self.constraint_manager is None else 0.0
 
@@ -61,13 +64,14 @@ class ExperimentCoordinator:
             estimator_hidden_state = None
 
             done = False
-            ep_len, total_task_reward, total_homeo_reward, total_intr_reward = 0, 0, 0, 0
+            ep_len, total_task_reward, total_homeo_reward, total_intr_reward, ep_violations = 0, 0, 0, 0, 0
+            ep_total_reward = 0.0
 
             while not done and ep_len < self.config['env']['horizon']:
                 obs_for_agent = np.concatenate([external_obs, estimated_internal_state.cpu().detach().numpy()]) if self.is_partially_observable else external_obs
                 state_for_components = estimated_internal_state.cpu().detach().numpy() if self.is_partially_observable else true_internal_state
 
-                safe_action, unsafe_action = self.trainer.get_action(external_obs, obs_for_agent, state_for_components, self.total_steps)
+                safe_action, unsafe_action, step_telemetry_info = self.trainer.get_action(external_obs, obs_for_agent, state_for_components, self.total_steps)
 
                 next_external_obs, task_reward, done, info = self.env.step(safe_action)
                 true_next_internal_state = info['internal_state'] if self.is_partially_observable else next_external_obs[-self.env.internal_dim:]
@@ -105,6 +109,8 @@ class ExperimentCoordinator:
                 if self.budget_meter and budget_exhausted:
                     total_reward += self.budget_meter.get_penalty()
 
+                ep_total_reward += total_reward
+
                 if self.meta_learner:
                     self.meta_learner.step(total_reward, true_next_internal_state)
 
@@ -116,6 +122,7 @@ class ExperimentCoordinator:
 
                 viability_label = 1.0 if not (done and info.get('violation', False)) else 0.0
                 violations = info.get('internal_state_violation', np.zeros(self.env.internal_dim))
+                ep_violations += np.sum(violations > 0)
                 constraint_margins = info.get('constraint_margins', np.zeros(self.env.num_constraints))
                 self.replay_buffer.store(external_obs, safe_action, unsafe_action, total_reward, next_external_obs, done, true_internal_state, true_next_internal_state, viability_label, violations, constraint_margins)
 
@@ -128,6 +135,10 @@ class ExperimentCoordinator:
                 external_obs, true_internal_state, estimated_internal_state, estimator_hidden_state = next_external_obs, true_next_internal_state, estimated_next_internal_state, next_estimator_hidden_state
                 ep_len += 1
                 self.total_steps += 1
+
+                if hasattr(self, 'telemetry_manager') and self.telemetry_manager:
+                    self.telemetry_manager.update_on_step(step_telemetry_info)
+                    self.telemetry_manager.update_sps(self.total_steps)
 
                 if self.scheduler.enabled:
                     current_params = self.scheduler.get_current_values(self.total_steps)
@@ -152,6 +163,12 @@ class ExperimentCoordinator:
             if self.meta_learner:
                 self.meta_learner.episode_end()
                 self.homeostat.mu = self.meta_learner.get_setpoints()
+
+            if hasattr(self, 'telemetry_manager') and self.telemetry_manager:
+                self.telemetry_manager.update_on_episode_end(
+                    episode_reward=ep_total_reward,
+                    episode_violations=ep_violations
+                )
 
             log_episode_data(self.evaluator, episode, self.total_steps, ep_len, total_task_reward, total_homeo_reward, total_intr_reward, 0.0, self.env, done, info)
 

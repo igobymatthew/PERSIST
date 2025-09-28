@@ -89,6 +89,13 @@ class SAC(nn.Module):
             action, _ = self.actor(obs_tensor, deterministic, False)
             return action.cpu().numpy()
 
+    def update(self, data, **kwargs):
+        """
+        Wrapper for the learn method to be compatible with the trainer.
+        The `learn` method contains the core SAC update logic.
+        """
+        return self.learn(data, **kwargs)
+
     def learn(self, data, gamma=0.99, polyak=0.995, ewc_penalty=0.0, adversary=None):
         obs, act, rew, next_obs, done = data['obs'], data['action'], data['reward'], data['next_obs'], data['done']
 

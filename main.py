@@ -1,10 +1,19 @@
+import sys
+print("--- Starting main.py execution ---", file=sys.stderr)
 from utils.factory import ComponentFactory
+print("--- Imported ComponentFactory ---", file=sys.stderr)
 from systems.coordinator import ExperimentCoordinator
+print("--- Imported ExperimentCoordinator ---", file=sys.stderr)
 from systems.persistence import PersistenceManager
+print("--- Imported PersistenceManager ---", file=sys.stderr)
 from utils.trainer import Trainer
+print("--- Imported Trainer ---", file=sys.stderr)
 from utils.robust_trainer import RobustTrainer
+print("--- Imported RobustTrainer ---", file=sys.stderr)
 from utils.multi_agent_trainer import MultiAgentTrainer
+print("--- Imported MultiAgentTrainer ---", file=sys.stderr)
 import os
+print("--- Imported os ---", file=sys.stderr)
 
 def main():
     """

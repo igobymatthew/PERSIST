@@ -8,9 +8,27 @@ internal_state:
   w:  [1.0, 0.5, 1.5]
 viability:
   constraints:
-    - "energy >= 0.2"
-    - "temp in [0.3, 0.7]"
-    - "integrity >= 0.6"
+    - name: "energy_min"
+      variable: "energy"
+      operator: ">="
+      threshold: 0.2
+      units: "ratio"
+      description: "Agent must maintain a minimum energy level to operate."
+      recovery_penalty: 1.0
+    - name: "temp_range"
+      variable: "temp"
+      operator: "in"
+      threshold: [0.3, 0.7]
+      units: "normalized"
+      description: "Agent's internal temperature must stay within a safe operating range."
+      recovery_penalty: 1.0
+    - name: "integrity_min"
+      variable: "integrity"
+      operator: ">="
+      threshold: 0.6
+      units: "ratio"
+      description: "Agent's structural integrity must not fall below a critical level."
+      recovery_penalty: 1.0
   shield:
     conf: 0.97
     horizon: 8

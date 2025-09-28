@@ -130,6 +130,16 @@ class ExperimentCoordinator:
                 constraint_margins = info.get('constraint_margins', np.zeros(self.env.num_constraints))
                 self.replay_buffer.store(external_obs, safe_action, unsafe_action, total_reward, next_external_obs, done, true_internal_state, true_next_internal_state, viability_label, violations, constraint_margins)
 
+                if self.near_boundary_buffer:
+                    with torch.no_grad():
+                        margin_tensor = self.viability_approximator.get_margin(estimated_next_internal_state)
+                        margin_value = margin_tensor.item() if margin_tensor.ndim == 0 else margin_tensor.squeeze().item()
+                    self.near_boundary_buffer.consider(
+                        estimated_next_internal_state.detach(),
+                        viability_label,
+                        margin_value
+                    )
+
                 if self.rehearsal_buffer:
                     self.rehearsal_buffer.add(obs_for_agent)
 

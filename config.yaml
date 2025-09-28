@@ -32,6 +32,11 @@ viability:
   shield:
     conf: 0.97
     horizon: 8
+  near_boundary_buffer:
+    enabled: true
+    capacity: 4096
+    margin_low: 0.35
+    margin_high: 0.65
 rewards:
   lambda_homeo: 0.7
   lambda_intr:  0.3

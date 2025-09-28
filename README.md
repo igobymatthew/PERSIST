@@ -172,6 +172,14 @@ updated roadmap on 09.28.2025
 
 
 ### Progress Updates
+*   **2025-09-28T10:02:12+00:00**: Added automated data collection around the viability frontier.
+    *   Implemented a configurable `NearBoundaryBuffer` (`buffers/near_boundary.py`) that captures internal states with safety
+        probabilities near the decision boundary and replays them during updates.
+    *   Extended the trainer and coordinator so the `ViabilityApproximator` (and ensemble variants) receive extra supervision
+        on these ambiguous samples, improving shield accuracy without inducing extra risk.
+    *   Updated `config.yaml` and the viability schema to expose `viability.near_boundary_buffer` controls and documented the
+        feature in `docs/theory.md`.
+    *   Added targeted unit tests for the buffer to guarantee sampling and filtering behave as expected.
 *   **2025-09-28T09:14:00+00:00**: Improved developer experience by simplifying setup and usage.
     *   Added an `environment.yml` file to allow for easy environment setup using Conda.
     *   Created a "Getting Started" section in `README.md` to document the environment setup process and the existing interactive CLI.

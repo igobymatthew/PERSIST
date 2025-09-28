@@ -1,6 +1,11 @@
 import numpy as np
 import torch
+import logging
 from .safety_network import SafetyNetwork
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class Shield:
     def __init__(self, internal_model, viability_approximator, action_space, conf=0.95, safety_network=None, mode='search'):
@@ -21,6 +26,7 @@ class Shield:
         self.conf = conf
         self.safety_network = safety_network
         self.mode = mode
+        logger.info(f"Shield initialized in '{self.mode}' mode with confidence {self.conf}.")
 
     def is_safe(self, x, action):
         """
@@ -67,29 +73,34 @@ class Shield:
         Returns the safe action. The original unsafe action must be stored
         by the caller if needed (e.g., for the replay buffer).
         """
+        logger.debug(f"Shield checking action: {action} for state: {s}")
         # If the original action is already safe, no need to project
         if self.is_safe(s, action):
+            logger.debug("Action is safe. No projection needed.")
             return action
 
+        logger.info(f"Unsafe action detected: {action}. Projecting...")
         # If in amortized mode and the network is available
         if self.mode == 'amortized' and self.safety_network is not None:
+            logger.debug("Using amortized projection.")
             with torch.no_grad():
                 internal_state_tensor = torch.from_numpy(s).float().unsqueeze(0)
                 action_tensor = torch.from_numpy(action).float().unsqueeze(0)
-
-                # Use the network to predict a safe action
                 projected_action_tensor = self.safety_network(internal_state_tensor, action_tensor)
-
             projected_action = projected_action_tensor.squeeze(0).cpu().numpy()
 
-            # As a final check, ensure the network's output is actually safe.
-            # If not, fall back to the more reliable (but slower) search method.
             if self.is_safe(s, projected_action):
+                logger.info(f"Amortized projection successful. New action: {projected_action}")
                 return projected_action
             else:
-                # Fallback to search if the network's suggestion is unsafe
-                return self._project_search(s, action)
+                logger.warning("Amortized projection failed (produced unsafe action). Falling back to search.")
+                projected_action = self._project_search(s, action)
+                logger.info(f"Search-based fallback produced action: {projected_action}")
+                return projected_action
 
         # If not in amortized mode, use the search-based projection
         else:
-            return self._project_search(s, action)
+            logger.debug("Using search-based projection.")
+            projected_action = self._project_search(s, action)
+            logger.info(f"Search-based projection produced action: {projected_action}")
+            return projected_action

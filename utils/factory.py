@@ -3,6 +3,7 @@ print("--- Starting factory.py import ---", file=sys.stderr)
 import torch
 import yaml
 import re
+from .validate_config import load_and_validate_config
 
 from environments.grid_life import GridLifeEnv
 from environments.multi_agent_gridlife import MultiAgentGridLifeEnv
@@ -42,8 +43,10 @@ from ops.telemetry import TelemetryManager
 class ComponentFactory:
     def __init__(self, config_path="config.yaml"):
         print("--- Initializing ComponentFactory ---")
-        with open(config_path, 'r') as f:
-            self.config = yaml.safe_load(f)
+        self.config = load_and_validate_config(
+            config_path=config_path,
+            schema_path="schemas/config.schema.json"
+        )
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")

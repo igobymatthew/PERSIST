@@ -3,7 +3,8 @@ print("--- Starting factory.py import ---", file=sys.stderr)
 import torch
 import yaml
 import re
-from .validate_config import load_and_validate_config
+import numpy as np
+from .validate_config import load_and_validate_config, validate_config
 
 from environments.grid_life import GridLifeEnv
 from environments.multi_agent_gridlife import MultiAgentGridLifeEnv
@@ -41,12 +42,18 @@ from utils.reporting import SafetyReporter
 from ops.telemetry import TelemetryManager
 
 class ComponentFactory:
-    def __init__(self, config_path="config.yaml"):
+    def __init__(self, config=None, config_path="config.yaml"):
         print("--- Initializing ComponentFactory ---")
-        self.config = load_and_validate_config(
-            config_path=config_path,
-            schema_path="schemas/config.schema.json"
-        )
+        if config:
+            self.config = validate_config(
+                config=config,
+                schema_path="schemas/config.schema.json"
+            )
+        else:
+            self.config = load_and_validate_config(
+                config_path=config_path,
+                schema_path="schemas/config.schema.json"
+            )
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
@@ -428,7 +435,7 @@ class ComponentFactory:
         print("✅ Multi-agent environment initialized.")
         return env
 
-    def create_ma_replay_buffer(self, env):
+    def create_ma_replay_.pybuffer(self, env):
         print("Initializing multi-agent replay buffer...")
         training_cfg = self.config['training']
         buffer = ReplayMA(

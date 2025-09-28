@@ -17,7 +17,10 @@ class InternalModel(nn.Module):
 
     def forward(self, x, act):
         combined = torch.cat([x, act], dim=-1)
-        return self.net(combined)
+        # Predict the change in state (delta) and add it to the original state.
+        # This residual connection makes learning identity mappings easier.
+        delta_x = self.net(combined)
+        return x + delta_x
 
     def train_model(self, x, act, next_x):
         x = torch.as_tensor(x, dtype=torch.float32)

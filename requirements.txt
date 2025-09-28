@@ -7,3 +7,5 @@ jsonschema
 hypothesis
 gymnasium
 prometheus-client
+questionary
+pytest

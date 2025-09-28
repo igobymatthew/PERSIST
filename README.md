@@ -397,6 +397,10 @@ Here are detailed suggestions, more critical than cosmetic. Go through them in p
 
 
 ### Progress Updates
+*   **2025-09-28T08:44:41+00:00**: Implemented an interactive command-line interface (CLI) in `main.py`.
+    *   The new CLI guides users through selecting an experiment type (e.g., standard single-agent, multi-agent, robust agent) or building a custom configuration.
+    *   This eliminates the need for manual `config.yaml` editing for most use cases, making the framework more user-friendly.
+    *   The underlying `ComponentFactory` and validation logic were refactored to support dynamic configuration generation.
 *   **2025-09-28T07:48:00+00:00**: Improved framework robustness and observability.
     *   Strengthened the testing framework by adding comprehensive test suites for the multi-agent environment (`tests/test_multiagent_env.py`) and the safety shield (`tests/test_shield.py`).
     *   Implemented a fail-fast configuration validation system by creating a master JSON schema (`schemas/config.schema.json`) and integrating it into the application's startup sequence.

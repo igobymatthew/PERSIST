@@ -5,3 +5,4 @@ cvxpy
 osqp
 jsonschema
 hypothesis
+gymnasium

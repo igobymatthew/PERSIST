@@ -26,7 +26,7 @@ class PersistAgent:
         # Pass the penalty to the underlying policy's update method
         # This works for SAC. If CVAR_SAC needs it, it would need a similar change.
         if isinstance(self.policy, SAC):
-            return self.policy.update(data, ewc_penalty=ewc_penalty)
+            return self.policy.learn(data, ewc_penalty=ewc_penalty)
         else:
             # For now, other policies don't use the penalty
             return self.policy.update(data)

@@ -15,14 +15,14 @@ class ConstraintManager:
     gradient ascent step:
     lambda_{t+1} = max(0, lambda_t + lr * (current_violation - target_violation_rate))
     """
-    def __init__(self, num_constraints, target_violation_rate=0.01, dual_lr=1e-3, device='cpu'):
+    def __init__(self, num_constraints, constraint_dim_indices, target_violation_rate=0.01, dual_lr=1e-3, device='cpu'):
         """
         Initializes the ConstraintManager.
 
         Args:
             num_constraints (int): The number of homeostatic constraints to manage.
-            target_violation_rate (float): The desired average violation rate for each
-                                           constraint.
+            constraint_dim_indices (list[int]): A list mapping each constraint to an internal state dimension index.
+            target_violation_rate (float): The desired average violation rate for each constraint.
             dual_lr (float): The learning rate for updating the dual variables (multipliers).
             device (torch.device or str): The device to store tensors on.
         """
@@ -30,6 +30,7 @@ class ConstraintManager:
         self.target_violation_rate = target_violation_rate
         self.dual_lr = dual_lr
         self.device = device
+        self.constraint_dim_indices = torch.tensor(constraint_dim_indices, device=self.device, dtype=torch.long)
 
         # Initialize dual variables (Lagrangian multipliers) for each constraint.
         # These are the adaptive penalty weights.
@@ -58,7 +59,8 @@ class ConstraintManager:
 
         # Perform the dual ascent step
         with torch.no_grad():
-            new_lambdas = self.lambdas + self.dual_lr * error
+            update_amount = self.dual_lr * error
+            new_lambdas = self.lambdas + update_amount
             # Project the lambdas to be non-negative
             self.lambdas = torch.clamp(new_lambdas, min=0)
 
@@ -77,10 +79,16 @@ class ConstraintManager:
         Returns:
             torch.Tensor: The total adaptive homeostatic penalty.
         """
-        # This assumes a one-to-one mapping between lambdas and homeostatic variables.
-        # The penalty is the squared error weighted by the learned lambdas and base weights.
+        num_internal_dims = w.shape[0]
+
+        # Create a tensor of effective lambdas for each internal state dimension
+        # by summing the lambdas of all constraints that apply to that dimension.
+        effective_lambdas = torch.zeros(num_internal_dims, device=self.device)
+        effective_lambdas.scatter_add_(0, self.constraint_dim_indices, self.lambdas)
+
+        # The penalty is the squared error weighted by the effective lambdas and base weights.
         squared_error = (x - mu)**2
-        penalty = self.lambdas * w * squared_error
+        penalty = effective_lambdas * w * squared_error
         return penalty.sum(dim=-1)
 
     def get_lambda_history(self):

@@ -18,7 +18,7 @@ class ReplayBuffer:
         self.internal_state_buf = np.zeros((capacity, internal_dim), dtype=np.float32)
         self.next_internal_state_buf = np.zeros((capacity, internal_dim), dtype=np.float32)
         self.viability_label_buf = np.zeros(capacity, dtype=np.float32)
-        self.violations_buf = np.zeros((capacity, internal_dim), dtype=np.float32)
+        self.violations_buf = np.zeros((capacity, num_constraints), dtype=np.float32)
         self.constraint_margins_buf = np.zeros((capacity, num_constraints), dtype=np.float32)
 
 

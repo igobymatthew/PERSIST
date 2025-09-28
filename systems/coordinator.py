@@ -68,12 +68,16 @@ class ExperimentCoordinator:
             ep_total_reward = 0.0
 
             while not done and ep_len < self.config['env']['horizon']:
+                # print(f"[Coordinator] Step {ep_len}: Start.")
                 obs_for_agent = np.concatenate([external_obs, estimated_internal_state.cpu().detach().numpy()]) if self.is_partially_observable else external_obs
                 state_for_components = estimated_internal_state.cpu().detach().numpy() if self.is_partially_observable else true_internal_state
 
+                # print(f"[Coordinator] Step {ep_len}: Getting action...")
                 safe_action, unsafe_action, step_telemetry_info = self.trainer.get_action(external_obs, obs_for_agent, state_for_components, self.total_steps)
+                # print(f"[Coordinator] Step {ep_len}: Got action. Stepping env...")
 
                 next_external_obs, task_reward, done, info = self.env.step(safe_action)
+                # print(f"[Coordinator] Step {ep_len}: Env stepped.")
                 true_next_internal_state = info['internal_state'] if self.is_partially_observable else next_external_obs[-self.env.internal_dim:]
 
                 if self.is_partially_observable:

@@ -1,14 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Viability Configuration Schema",
-  "description": "Defines the structure for the 'viability' section of the agent's configuration.",
+  "description": "Defines the structure for the 'viability' and related sections of the agent's configuration.",
   "type": "object",
   "properties": {
     "constraints": {
-      "description": "A list of string-based constraints defining the viable region.",
+      "description": "A list of structured constraint objects defining the viable region.",
       "type": "array",
       "items": {
-        "type": "string"
+        "$ref": "#/definitions/constraint"
       },
       "minItems": 1
     },
@@ -31,5 +31,52 @@
       "required": ["conf", "horizon"]
     }
   },
-  "required": ["constraints", "shield"]
+  "required": ["constraints", "shield"],
+  "definitions": {
+    "constraint": {
+      "type": "object",
+      "description": "A single safety or viability constraint.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "A unique name for the constraint (e.g., 'energy_min')."
+        },
+        "variable": {
+          "type": "string",
+          "description": "The internal state variable this constraint applies to (e.g., 'energy', 'temp')."
+        },
+        "operator": {
+          "type": "string",
+          "enum": [">=", "<=", "in"],
+          "description": "The comparison operator."
+        },
+        "threshold": {
+          "description": "The threshold value or range for the constraint.",
+          "oneOf": [
+            { "type": "number" },
+            {
+              "type": "array",
+              "items": { "type": "number" },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          ]
+        },
+        "units": {
+          "type": "string",
+          "description": "The unit of the variable (e.g., 'ratio', 'celsius')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A human-readable description of the constraint's purpose."
+        },
+        "recovery_penalty": {
+            "type": "number",
+            "description": "Penalty applied when this specific constraint is violated. Overrides default penalties.",
+            "minimum": 0
+        }
+      },
+      "required": ["name", "variable", "operator", "threshold", "description"]
+    }
+  }
 }

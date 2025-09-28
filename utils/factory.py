@@ -1,3 +1,5 @@
+import sys
+print("--- Starting factory.py import ---", file=sys.stderr)
 import torch
 import yaml
 import re

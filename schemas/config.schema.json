@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PERSIST Framework Master Configuration Schema",
+  "description": "Defines the structure for the main config.yaml file.",
+  "type": "object",
+  "properties": {
+    "env": { "type": "object" },
+    "internal_state": { "type": "object" },
+    "viability": {
+      "$ref": "viability.schema.json#"
+    },
+    "rewards": { "type": "object" },
+    "training": { "type": "object" },
+    "risk_sensitive": { "type": "object" },
+    "curriculum": { "type": "object" },
+    "safety_network": { "type": "object" },
+    "demonstrations": { "type": "object" },
+    "state_estimator": { "type": "object" },
+    "empowerment": { "type": "object" },
+    "meta_learning": { "type": "object" },
+    "mpc": { "type": "object" },
+    "safety": { "type": "object" },
+    "ood": { "type": "object" },
+    "continual": { "type": "object" },
+    "budgets": { "type": "object" },
+    "population": { "type": "object" },
+    "maintenance": { "type": "object" },
+    "adversarial": { "type": "object" },
+    "safety_probe": { "type": "object" },
+    "multiagent": { "type": "object" },
+    "agent_types": { "type": "object" },
+    "resource_model": { "type": "object" },
+    "resource_allocator": { "type": "object" },
+    "telemetry": { "type": "object" }
+  },
+  "required": [
+    "env",
+    "internal_state",
+    "viability",
+    "rewards",
+    "training",
+    "multiagent",
+    "agent_types"
+  ]
+}

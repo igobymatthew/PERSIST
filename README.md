@@ -394,6 +394,48 @@ Here are detailed suggestions, more critical than cosmetic. Go through them in p
 
 ---
 
+updated roadmap
+⸻
+
+1. Verify repo integrity
+	•	Make sure your main branch is up-to-date with the latest commits from your feature branches (merge or rebase where appropriate).
+	•	Double-check that config.yaml, schemas/, and train.py still match the most recent architectural changes you made.
+
+⸻
+
+2. Strengthen collaboration safety nets
+	•	Enable required status checks on main (tests must pass before merging).
+	•	Add a continuous integration workflow (GitHub Actions) that runs your test suite automatically.
+	•	Consider adding pre-commit hooks (black, flake8, mypy) to enforce code quality locally.
+
+⸻
+
+3. Improve developer UX
+	•	The new CLI (main.py) is a big step. Document it clearly in the README (e.g., python main.py --help).
+	•	Add example configs in a /configs/ directory for different experiment types (single-agent, multi-agent, risk-sensitive, etc.).
+	•	Consider a Dockerfile or environment.yml so users can spin up the environment without dependency hell.
+
+⸻
+
+4. Expand testing & evaluation
+	•	You already have unit tests. Next, add integration tests:
+	•	Shield never allows violations.
+	•	Multi-agent episodes terminate cleanly.
+	•	Curriculum scheduler tightens constraints over time.
+	•	Add a benchmark suite run (like pytest -m benchmarks) to track survival time, shield usage, etc., on every commit.
+
+⸻
+
+5. Roadmap milestones
+	•	Short-term: polish multi-agent CTDE implementation (resource allocator, shield coordination).
+	•	Medium-term: unify telemetry + reporting into dashboards (Prometheus → Grafana).
+	•	Long-term: add polished docs site (mkdocs or sphinx) with theory, API, and tutorials.
+
+⸻
+
+You’re stable again. The most productive “next” is automating tests + CI, because that prevents you from slipping back into branch loss or regression.
+
+
 
 
 ### Progress Updates

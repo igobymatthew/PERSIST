@@ -27,6 +27,8 @@ class GridLifeEnv:
 
         self.dim_map = {name: i for i, name in enumerate(self.config['internal_state']['dims'])}
         self.constraints = self._parse_constraints(self.config['viability']['constraints'])
+        self.num_constraints = len(self.constraints)
+        self.constraint_names = [c['name'] for c in self.constraints]
 
         self.food_pos = self._place_randomly()
         self.hot_pos = self._place_randomly()
@@ -163,4 +165,20 @@ class GridLifeEnv:
         if self.partial_observability:
             info['internal_state'] = self.internal_state.copy()
 
+        info['constraint_margins'] = self._calculate_constraint_margins()
+
         return self._get_obs(), task_reward, done, info
+
+    def _calculate_constraint_margins(self):
+        """ Calculates the margin for each safety constraint. """
+        margins = np.zeros(self.num_constraints)
+        for i, c in enumerate(self.constraints):
+            val = self.internal_state[c['dim_idx']]
+            op = c['op']
+            threshold = c['val']
+
+            if op == '>=':
+                margins[i] = val - threshold
+            elif op == '<=':
+                margins[i] = threshold - val
+        return margins

@@ -519,6 +519,22 @@ That’s the difference between “survive the episode” and “survive in the 
 
 ***
 ### Progress Updates
+*   **2025-09-27T15:19:51+00:00**: Implemented a multi-agent persistence architecture (CTDE).
+    *   Created `MultiAgentGridLifeEnv` with a dictionary-based API for managing multiple agents in a shared world.
+    *   Implemented a `SharedSAC` agent using parameter sharing and role embeddings for efficient homogeneous multi-agent learning.
+    *   Added a `MultiAgentTrainer` and `ReplayMA` buffer to handle the centralized training loop.
+    *   Integrated a `ResourceAllocator` for proportional resource distribution and a `CBFCoupler` for collision avoidance.
+    *   The entire multi-agent system is configurable via the `multiagent` and `agent_types` sections in `config.yaml`.
+*   **2025-09-27T13:32:29+00:00**: Implemented interpretability for the safety path.
+    *   Added a `SafetyProbe` component (`components/safety_probe.py`) to predict individual constraint margins, providing insight into the agent's safety status.
+    *   Created a `SafetyReporter` (`utils/reporting.py`) to generate detailed JSON logs explaining why the safety shield modified an action.
+    *   The environment now calculates and provides true constraint margins, which are used to train the probe.
+    *   The feature is fully configurable via the `safety_probe` section in `config.yaml`.
+*   **2025-09-27T13:29:35+00:00**: Implemented adversarial robustness.
+    *   Added an `Adversary` component (`components/adversary.py`) that uses PGD to generate adversarial examples.
+    *   Created a `RobustTrainer` (`utils/robust_trainer.py`) to handle adversarial training.
+    *   The `SAC` agent's critic is now trained on these adversarial examples to improve robustness.
+    *   The feature is configurable via the `adversarial` section in `config.yaml`.
 *   **2025-09-27T13:13:49+00:00**: Implemented self-maintenance behaviors.
     *   Added "refuel," "cool-down," and "repair" stations to the `GridLifeEnv`.
     *   These tasks incur a small configurable penalty, encouraging the agent to learn strategic resource management.

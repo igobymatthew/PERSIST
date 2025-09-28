@@ -3,10 +3,15 @@ import yaml
 import re
 
 from environments.grid_life import GridLifeEnv
+from environments.multi_agent_gridlife import MultiAgentGridLifeEnv
 from agents.persist_agent import PersistAgent
 from agents.mpc_agent import MPCAgent
+from agents.shared_sac import SharedSAC
 from components.homeostat import Homeostat
 from components.replay_buffer import ReplayBuffer
+from buffers.replay_ma import ReplayMA
+from multiagent.resource_allocator import ResourceAllocator
+from multiagent.cbf_coupler import CBFCoupler
 from components.latent_world_model import LatentWorldModel
 from components.internal_model import InternalModel
 from components.viability_approximator import ViabilityApproximator
@@ -27,6 +32,9 @@ from components.cbf_layer import CBFLayer
 from buffers.rehearsal import RehearsalBuffer
 from components.continual import ContinualLearningManager
 from components.budget_meter import BudgetMeter
+from components.adversary import Adversary
+from components.safety_probe import SafetyProbe
+from utils.reporting import SafetyReporter
 
 class ComponentFactory:
     def __init__(self, config_path="config.yaml"):
@@ -357,45 +365,184 @@ class ComponentFactory:
         print("✅ BudgetMeter initialized.")
         return meter
 
-    def get_all_components(self):
-        env = self.create_env()
-        world_model = self.create_world_model(env)
-        internal_model = self.create_internal_model(env)
-        viability_approximator = self.create_viability_approximator(env)
-        viability_ensemble = self.create_viability_ensemble(env)
-        safety_network = self.create_safety_network(env)
-        dynamics_adapter = self.create_dynamics_adapter(internal_model)
-        agent = self.create_agent(env, world_model, internal_model, viability_approximator)
-        continual_learning_manager = self.create_continual_learning_manager(agent)
-        shield = self.create_shield(env, internal_model, viability_approximator, safety_network, viability_ensemble)
-        safe_fallback_policy = self.create_safe_fallback_policy(env)
-        cbf_layer = self.create_cbf_layer(env)
-        meta_learner = self.create_meta_learner()
-        constraint_manager = self.create_constraint_manager(env)
-        ood_detector = self.create_ood_detector(viability_approximator)
-        homeostat = self.create_homeostat(meta_learner)
-        intrinsic_module = self.create_intrinsic_reward_module(env, world_model)
-        state_estimator = self.create_state_estimator(env)
-        replay_buffer = self.create_replay_buffer(env)
-        rehearsal_buffer = self.create_rehearsal_buffer()
-        demo_buffer = self.create_demonstration_buffer()
-        evaluator = self.create_evaluator()
-        budget_meter = self.create_budget_meter()
+    def create_adversary(self):
+        adversarial_config = self.config.get('adversarial', {})
+        if not adversarial_config.get('enabled', False):
+            return None
+        print("Initializing Adversary...")
+        adversary = Adversary(
+            epsilon=adversarial_config.get('epsilon', 0.05),
+            alpha=adversarial_config.get('alpha', 0.01),
+            num_iter=adversarial_config.get('num_iter', 10)
+        )
+        print("✅ Adversary initialized.")
+        return adversary
 
-        components = {
-            'env': env, 'agent': agent, 'homeostat': homeostat, 'budget_meter': budget_meter,
-            'world_model': world_model, 'internal_model': internal_model,
-            'viability_approximator': viability_approximator,
-            'viability_ensemble': viability_ensemble,
-            'intrinsic_reward_module': intrinsic_module,
-            'safety_network': safety_network, 'shield': shield,
-            'replay_buffer': replay_buffer, 'demonstration_buffer': demo_buffer,
-            'rehearsal_buffer': rehearsal_buffer,
-            'state_estimator': state_estimator, 'meta_learner': meta_learner,
-            'constraint_manager': constraint_manager, 'ood_detector': ood_detector,
-            'continual_learning_manager': continual_learning_manager,
-            'safe_fallback_policy': safe_fallback_policy,
-            'dynamics_adapter': dynamics_adapter, 'cbf_layer': cbf_layer,
-            'evaluator': evaluator, 'device': self.device, 'config': self.config
+    def create_safety_probe(self, env):
+        probe_config = self.config.get('safety_probe', {})
+        if not probe_config.get('enabled', False):
+            return None
+        print("Initializing SafetyProbe...")
+        probe = SafetyProbe(
+            internal_dim=env.internal_dim,
+            num_constraints=env.num_constraints,
+            hidden_sizes=probe_config.get('hidden_sizes', (64, 64)),
+            lr=probe_config.get('lr', 1e-3)
+        ).to(self.device)
+        return probe
+
+    def create_safety_reporter(self, env):
+        probe_config = self.config.get('safety_probe', {})
+        if not probe_config.get('enabled', False):
+            return None
+        print("Initializing SafetyReporter...")
+        reporter = SafetyReporter(
+            log_path=probe_config.get('log_path', 'safety_reports.log'),
+            constraint_names=env.constraint_names
+        )
+        return reporter
+
+    def create_multi_agent_env(self):
+        print("Initializing multi-agent environment...")
+        env = MultiAgentGridLifeEnv(self.config)
+        print("✅ Multi-agent environment initialized.")
+        return env
+
+    def create_ma_replay_buffer(self, env):
+        print("Initializing multi-agent replay buffer...")
+        training_cfg = self.config['training']
+        buffer = ReplayMA(
+            capacity=training_cfg['buffer']['capacity'],
+            obs_space=env.single_observation_space,
+            act_space=env.single_action_space,
+            num_agents=self.config['multiagent']['num_agents'],
+            agent_ids=env.agents,
+            device=self.device
+        )
+        print("✅ Multi-agent replay buffer initialized.")
+        return buffer
+
+    def create_ma_policies(self, env):
+        print("Initializing multi-agent policies...")
+        agent_types_cfg = self.config['agent_types']
+        policies = {}
+
+        default_cfg = agent_types_cfg['default']
+        if default_cfg['policy'] == 'shared_sac':
+            obs_dim = sum(np.prod(space.shape) for space in env.single_observation_space.spaces.values())
+
+            policy = SharedSAC(
+                obs_dim=obs_dim,
+                act_dim=env.single_action_space.shape[0],
+                num_agents=self.config['multiagent']['num_agents'],
+                role_embedding_dim=default_cfg['role_embedding_dim'],
+                config=self.config
+            ).to(self.device)
+            policies['default'] = policy
+        else:
+            raise ValueError(f"Unsupported multi-agent policy type: {default_cfg['policy']}")
+
+        print("✅ Multi-agent policies initialized.")
+        return policies
+
+    def create_resource_allocator(self):
+        print("Initializing resource allocator...")
+        allocator_config = self.config.get('resource_allocator', {})
+        if allocator_config.get('mode', 'none') == 'none':
+            return None
+
+        resource_config = {
+            'food': self.config['resource_model']['food']['initial_density'] * 10 * 10
         }
+
+        allocator = ResourceAllocator(resource_config)
+        print("✅ Resource allocator initialized.")
+        return allocator
+
+    def create_cbf_coupler(self, env):
+        print("Initializing CBF Coupler...")
+        # Using agent_types.default for now, as heterogeneity is a future step
+        agent_config = self.config.get('agent_types', {}).get('default', {})
+        cbf_config = agent_config.get('cbf', {})
+
+        if not cbf_config.get('enabled', False):
+            print("CBF Coupler is disabled in config.")
+            return None
+
+        coupler = CBFCoupler(
+            agent_ids=env.agents,
+            action_dim=env.single_action_space.shape[0],
+            min_safe_distance=1.0, # Corresponds to single-cell occupancy
+            gamma=cbf_config.get('gamma', 0.5)
+        )
+        print("✅ CBF Coupler initialized.")
+        return coupler
+
+    def get_all_components(self):
+        is_multi_agent = self.config.get('multiagent', {}).get('enabled', False)
+
+        if is_multi_agent:
+            print("\n--- Building components for MULTI-AGENT training ---")
+            env = self.create_multi_agent_env()
+            policies = self.create_ma_policies(env)
+            replay_buffer = self.create_ma_replay_buffer(env)
+            resource_allocator = self.create_resource_allocator()
+            cbf_coupler = self.create_cbf_coupler(env)
+
+            components = {
+                'env': env,
+                'policies': policies,
+                'replay_buffer': replay_buffer,
+                'resource_allocator': resource_allocator,
+                'cbf_coupler': cbf_coupler,
+                'device': self.device,
+                'config': self.config
+            }
+        else:
+            print("\n--- Building components for SINGLE-AGENT training ---")
+            env = self.create_env()
+            world_model = self.create_world_model(env)
+            internal_model = self.create_internal_model(env)
+            viability_approximator = self.create_viability_approximator(env)
+            viability_ensemble = self.create_viability_ensemble(env)
+            safety_network = self.create_safety_network(env)
+            dynamics_adapter = self.create_dynamics_adapter(internal_model)
+            agent = self.create_agent(env, world_model, internal_model, viability_approximator)
+            continual_learning_manager = self.create_continual_learning_manager(agent)
+            shield = self.create_shield(env, internal_model, viability_approximator, safety_network, viability_ensemble)
+            safe_fallback_policy = self.create_safe_fallback_policy(env)
+            cbf_layer = self.create_cbf_layer(env)
+            meta_learner = self.create_meta_learner()
+            constraint_manager = self.create_constraint_manager(env)
+            ood_detector = self.create_ood_detector(viability_approximator)
+            homeostat = self.create_homeostat(meta_learner)
+            intrinsic_module = self.create_intrinsic_reward_module(env, world_model)
+            state_estimator = self.create_state_estimator(env)
+            replay_buffer = self.create_replay_buffer(env)
+            rehearsal_buffer = self.create_rehearsal_buffer()
+            demo_buffer = self.create_demonstration_buffer()
+            evaluator = self.create_evaluator()
+            budget_meter = self.create_budget_meter()
+            adversary = self.create_adversary()
+            safety_probe = self.create_safety_probe(env)
+            safety_reporter = self.create_safety_reporter(env)
+
+            components = {
+                'env': env, 'agent': agent, 'homeostat': homeostat, 'budget_meter': budget_meter,
+                'world_model': world_model, 'internal_model': internal_model,
+                'viability_approximator': viability_approximator,
+                'viability_ensemble': viability_ensemble,
+                'intrinsic_reward_module': intrinsic_module,
+                'safety_network': safety_network, 'shield': shield,
+                'replay_buffer': replay_buffer, 'demonstration_buffer': demo_buffer,
+                'rehearsal_buffer': rehearsal_buffer,
+                'state_estimator': state_estimator, 'meta_learner': meta_learner,
+                'constraint_manager': constraint_manager, 'ood_detector': ood_detector,
+                'continual_learning_manager': continual_learning_manager,
+                'safe_fallback_policy': safe_fallback_policy,
+                'dynamics_adapter': dynamics_adapter, 'cbf_layer': cbf_layer,
+                'evaluator': evaluator, 'device': self.device, 'config': self.config,
+                'adversary': adversary, 'safety_probe': safety_probe, 'safety_reporter': safety_reporter
+            }
+
         return components

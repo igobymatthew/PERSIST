@@ -1,0 +1,29 @@
+groups:
+- name: PersistAgentAlerts
+  rules:
+  - alert: HighNearBoundaryDensity
+    expr: persist_near_boundary_density > 100
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High density of near-boundary samples"
+      description: "The agent is collecting a high number of samples near the viability boundary (value = {{ $value }}). This may indicate instability or an imminent violation."
+
+  - alert: NoTrainingSteps
+    expr: rate(persist_episodes_total[10m]) == 0
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Training has stopped"
+      description: "The agent has not completed any new episodes in the last 10 minutes. The training process may have stalled or crashed."
+
+  - alert: HighConstraintViolationRate
+    expr: rate(persist_constraint_violations_total[5m]) > 0.1
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High rate of constraint violations"
+      description: "The agent is violating constraints at a high rate (current rate: {{ $value }} violations/sec). The safety shield or policy may be failing."

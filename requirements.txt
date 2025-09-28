@@ -6,3 +6,4 @@ osqp
 jsonschema
 hypothesis
 gymnasium
+prometheus-client

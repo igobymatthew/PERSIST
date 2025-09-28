@@ -35,6 +35,7 @@ from components.budget_meter import BudgetMeter
 from components.adversary import Adversary
 from components.safety_probe import SafetyProbe
 from utils.reporting import SafetyReporter
+from ops.telemetry import TelemetryManager
 
 class ComponentFactory:
     def __init__(self, config_path="config.yaml"):
@@ -407,6 +408,15 @@ class ComponentFactory:
         )
         return reporter
 
+    def create_telemetry_manager(self):
+        print("Initializing TelemetryManager...")
+        telemetry_manager = TelemetryManager(self.config)
+        if not telemetry_manager.enabled:
+            print("Telemetry is disabled in config.")
+            return None
+        print("✅ TelemetryManager initialized.")
+        return telemetry_manager
+
     def create_multi_agent_env(self):
         print("Initializing multi-agent environment...")
         env = MultiAgentGridLifeEnv(self.config)
@@ -494,12 +504,15 @@ class ComponentFactory:
             resource_allocator = self.create_resource_allocator()
             cbf_coupler = self.create_cbf_coupler(env)
 
+            telemetry_manager = self.create_telemetry_manager()
+
             components = {
                 'env': env,
                 'policies': policies,
                 'replay_buffer': replay_buffer,
                 'resource_allocator': resource_allocator,
                 'cbf_coupler': cbf_coupler,
+                'telemetry_manager': telemetry_manager,
                 'device': self.device,
                 'config': self.config
             }
@@ -531,6 +544,7 @@ class ComponentFactory:
             adversary = self.create_adversary()
             safety_probe = self.create_safety_probe(env)
             safety_reporter = self.create_safety_reporter(env)
+            telemetry_manager = self.create_telemetry_manager()
 
             components = {
                 'env': env, 'agent': agent, 'homeostat': homeostat, 'budget_meter': budget_meter,
@@ -547,7 +561,8 @@ class ComponentFactory:
                 'safe_fallback_policy': safe_fallback_policy,
                 'dynamics_adapter': dynamics_adapter, 'cbf_layer': cbf_layer,
                 'evaluator': evaluator, 'device': self.device, 'config': self.config,
-                'adversary': adversary, 'safety_probe': safety_probe, 'safety_reporter': safety_reporter
+                'adversary': adversary, 'safety_probe': safety_probe, 'safety_reporter': safety_reporter,
+                'telemetry_manager': telemetry_manager
             }
 
         return components

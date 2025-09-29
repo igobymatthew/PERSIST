@@ -38,6 +38,18 @@ After you make your selections, the final configuration will be displayed for co
 
 
 ### Progress Updates
+*   **2025-09-29T10:35:25-04:00**: Captured the long-term roadmap and review guidance in dedicated documentation.
+    *   Authored `docs/roadmap.md` to record wins, refactor priorities, testing plans, and milestone checklists for future contributors.
+    *   Documented actionable steps for README modularization, API hygiene, CI coverage, and developer experience improvements.
+    *   Highlighted near-term verification, collaboration, and benchmarking tasks to keep the repository aligned with the architecture vision.
+*   **2025-09-29T10:34:54-04:00**: Streamlined the top-level README around quick start usage.
+    *   Removed internal review checklists so the README now emphasizes onboarding instructions and the progress journal.
+    *   Focused the "Getting Started" narrative on the Conda workflow and interactive CLI entry point for running experiments.
+    *   Preserved the historical changelog while paving the way for deeper docs to live in `docs/`.
+*   **2025-09-29T10:32:17-04:00**: Deepened the CLI walkthrough for configuring training runs.
+    *   Added interactive flows in `main.py` that let users tune epochs, update cadence, learning rates, and shield amortization thresholds before launching training.
+    *   Enabled optional prompts for resizing network capacity and curriculum schedules, keeping advanced knobs accessible without editing YAML by hand.
+    *   Synced defaults in `config.yaml` with the new questionnaire so saved configurations match the guided selections.
 *   **2025-09-28T10:02:12+00:00**: Added automated data collection around the viability frontier.
     *   Implemented a configurable `NearBoundaryBuffer` (`buffers/near_boundary.py`) that captures internal states with safety
         probabilities near the decision boundary and replays them during updates.

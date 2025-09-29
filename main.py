@@ -1,8 +1,12 @@
-import sys
 import os
 import yaml
 import questionary
-from typing import Callable, Optional, TypeVar
+from typing import Callable, Optional, TypeVar, Sequence
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from rich import box
 
 from utils.factory import ComponentFactory
 from systems.coordinator import ExperimentCoordinator
@@ -17,6 +21,50 @@ def get_base_config():
         return yaml.safe_load(f)
 
 Number = TypeVar("Number", int, float)
+
+
+console = Console()
+
+
+class StepProgressTracker:
+    """Render a color-coded step indicator for the CLI walkthrough."""
+
+    def __init__(self, steps: Sequence[str]):
+        self.steps = list(steps)
+        self.total = len(self.steps)
+        self.current = 0
+
+    def advance(self, title: str) -> None:
+        """Advance to the next step and print the indicator."""
+
+        if not self.steps:
+            return
+
+        self.current = min(self.current + 1, self.total)
+        text = Text()
+
+        for idx, step in enumerate(self.steps, start=1):
+            if idx < self.current:
+                marker, style = "✔", "green"
+            elif idx == self.current:
+                marker, style = "➤", "yellow"
+            else:
+                marker, style = "●", "grey70"
+
+            step_text = f" {marker} {step} "
+            text.append(step_text, style=style)
+
+            if idx != self.total:
+                text.append(" › ", style="grey50")
+
+        console.print(
+            Panel(
+                text,
+                title=f"Step {self.current}/{self.total}: {title}",
+                border_style="cyan",
+                box=box.ROUNDED,
+            )
+        )
 
 
 def _prompt_numeric(
@@ -51,24 +99,74 @@ def _prompt_numeric(
         validate=_validate,
     ).ask()
 
+    label = message.split("(")[0].strip()
+
     if answer is None or answer.strip() == "":
+        console.print(f":white_check_mark: Using default {label} → {default}", style="green")
         return default
-    return caster(answer)
+
+    value = caster(answer)
+    console.print(f":white_check_mark: Set {label} → {value}", style="green")
+    return value
 
 
-def _maybe_customize_training(config: dict) -> None:
+def _render_summary_card(title: str, payload: dict, *, subtitle: Optional[str] = None) -> None:
+    """Display a bordered summary card for the provided section details."""
+
+    body = Text()
+
+    if not payload:
+        body.append("No changes made.", style="grey70")
+    else:
+        for key, value in payload.items():
+            body.append(f"{key}: ", style="bold white")
+            body.append(f"{value}\n", style="white")
+
+    console.print(
+        Panel(
+            body,
+            title=title,
+            subtitle=subtitle,
+            border_style="magenta",
+            box=box.DOUBLE,
+        )
+    )
+
+
+def _render_top_level_summary(config: dict) -> None:
+    """Summarize the primary experiment toggles for quick review."""
+
+    toggles = {
+        "multiagent": config.get("multiagent", {}).get("enabled", False),
+        "adversarial": config.get("adversarial", {}).get("enabled", False),
+        "curriculum": config.get("curriculum", {}).get("enabled", False),
+        "telemetry": config.get("telemetry", {}).get("enabled", False),
+        "risk_sensitive": config.get("risk_sensitive", {}).get("enabled", False),
+    }
+
+    _render_summary_card(
+        "Top-Level Configuration",
+        toggles,
+        subtitle="Primary feature switches",
+    )
+
+
+def _maybe_customize_training(config: dict, progress: Optional[StepProgressTracker] = None) -> None:
     """Offer the user a chance to fine-tune common training hyperparameters."""
 
     training_cfg = config.get("training")
     if not training_cfg:
         return
 
-    print("\n--- Core Training Hyperparameters ---")
+    if progress:
+        progress.advance("Core Training Hyperparameters")
+
+    console.print("\n[bold cyan]Core Training Hyperparameters[/bold cyan]")
     if not questionary.confirm(
         "Review or modify epochs, step schedules, learning rates, and decay settings?",
         default=True,
     ).ask():
-        print("Keeping training defaults.")
+        console.print("[yellow]Keeping training defaults.[/]")
         return
 
     # Ensure we have sensible defaults to surface to the user.
@@ -139,16 +237,31 @@ def _maybe_customize_training(config: dict) -> None:
         min_value=1,
     )
 
+    summary_payload = {
+        "epochs": training_cfg["epochs"],
+        "max_steps": training_cfg["max_steps"],
+        "update_every": training_cfg["update_every"],
+        "batch_size": training_cfg["batch_size"],
+        "actor_lr": training_cfg["actor_lr"],
+        "critic_lr": training_cfg["critic_lr"],
+    }
+    _render_summary_card("Training Summary", summary_payload, subtitle="Review these values before continuing")
 
-def _maybe_customize_model_capacity(config: dict) -> None:
+
+def _maybe_customize_model_capacity(
+    config: dict, progress: Optional[StepProgressTracker] = None
+) -> None:
     """Allow the user to adjust common hidden dimensions for learned modules."""
 
-    print("\n--- Model Capacity ---")
+    if progress:
+        progress.advance("Model Capacity")
+
+    console.print("\n[bold cyan]Model Capacity[/bold cyan]")
     if not questionary.confirm(
         "Adjust hidden dimensions for estimator, empowerment, and safety networks?",
         default=False,
     ).ask():
-        print("Keeping network dimensions at their defaults.")
+        console.print("[yellow]Keeping network dimensions at their defaults.[/]")
         return
 
     state_estimator_cfg = config.setdefault("state_estimator", {})
@@ -192,20 +305,34 @@ def _maybe_customize_model_capacity(config: dict) -> None:
         min_value=0.0,
     )
 
+    summary_payload = {
+        "state_estimator": f"{state_estimator_cfg['n_layers']}×{state_estimator_cfg['hidden_dim']}",
+        "empowerment_hidden": empowerment_cfg["hidden_dim"],
+        "empowerment_k": empowerment_cfg["k"],
+        "safety_hidden": safety_net_cfg["hidden_dim"],
+        "safety_lr": safety_net_cfg["lr"],
+    }
+    _render_summary_card("Model Capacity Summary", summary_payload)
 
-def _maybe_customize_curriculum(config: dict) -> None:
+
+def _maybe_customize_curriculum(
+    config: dict, progress: Optional[StepProgressTracker] = None
+) -> None:
     """Offer curriculum schedule refinement when enabled."""
 
     curriculum_cfg = config.get("curriculum")
     if not curriculum_cfg or not curriculum_cfg.get("enabled", False):
         return
 
-    print("\n--- Curriculum Schedule ---")
+    if progress:
+        progress.advance("Curriculum Schedule")
+
+    console.print("\n[bold cyan]Curriculum Schedule[/bold cyan]")
     if not questionary.confirm(
         "Tweak curriculum steps or annealing targets?",
         default=False,
     ).ask():
-        print("Keeping curriculum schedule unchanged.")
+        console.print("[yellow]Keeping curriculum schedule unchanged.[/]")
         return
 
     curriculum_cfg["steps"] = _prompt_numeric(
@@ -242,13 +369,35 @@ def _maybe_customize_curriculum(config: dict) -> None:
         )
         constraint["start"], constraint["end"] = start, end
 
+    summary_payload = {
+        "steps": curriculum_cfg["steps"],
+        "lambda_homeo": curriculum_cfg.get("lambda_homeo"),
+        "lambda_intr": curriculum_cfg.get("lambda_intr"),
+        "viability_constraints": len(curriculum_cfg.get("viability_constraints", [])),
+    }
+    _render_summary_card("Curriculum Summary", summary_payload)
+
 
 def _run_common_walkthroughs(config: dict) -> dict:
     """Run the shared customization flows before returning a config."""
 
-    _maybe_customize_training(config)
-    _maybe_customize_model_capacity(config)
-    _maybe_customize_curriculum(config)
+    steps = ["Training", "Model Capacity"]
+    if config.get("curriculum", {}).get("enabled", False):
+        steps.append("Curriculum")
+    progress = StepProgressTracker(steps)
+
+    _maybe_customize_training(config, progress)
+    _maybe_customize_model_capacity(config, progress)
+    _maybe_customize_curriculum(config, progress)
+
+    if steps:
+        console.print(
+            Panel(
+                "Configuration walkthrough complete! Review the final summary below.",
+                border_style="green",
+                box=box.HEAVY,
+            )
+        )
     return config
 
 
@@ -411,7 +560,8 @@ def main():
 
     if config:
         # Pretty print the final config for user confirmation
-        print("\n--- Final Configuration ---")
+        console.print("\n[bold underline]Final Configuration Overview[/bold underline]")
+        _render_top_level_summary(config)
         print(yaml.dump(config, default_flow_style=False, indent=2))
         print("---------------------------\n")
 

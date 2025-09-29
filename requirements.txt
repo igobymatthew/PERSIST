@@ -8,4 +8,5 @@ hypothesis
 gymnasium
 prometheus-client
 questionary
+rich
 pytest

@@ -173,3 +173,28 @@ class SharedSAC(nn.Module):
                 p_target.data.add_((1 - polyak) * p.data)
 
         return -logp_pi.detach().mean().item()
+
+    def get_state(self):
+        return self.state_dict()
+
+    def load_state(self, state):
+        if state:
+            self.load_state_dict(state)
+
+    def get_optimizers(self):
+        return {
+            'actor': self.actor_optimizer,
+            'critic': self.critic_optimizer,
+            'alpha': self.alpha_optimizer,
+        }
+
+    def get_optimizer_state(self):
+        return {name: optimizer.state_dict() for name, optimizer in self.get_optimizers().items()}
+
+    def load_optimizer_state(self, state):
+        if not state:
+            return
+        for name, optimizer in self.get_optimizers().items():
+            optimizer_state = state.get(name)
+            if optimizer_state:
+                optimizer.load_state_dict(optimizer_state)

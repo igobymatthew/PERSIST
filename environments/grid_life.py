@@ -34,6 +34,7 @@ class GridLifeEnv:
         self.food_pos = self._place_randomly()
         self.hot_pos = self._place_randomly()
         self.hazard_pos = self._place_randomly()
+        self.fire_pos = self._place_randomly()
 
         # Maintenance tasks are now managed by a dedicated class
         self.maintenance_manager = MaintenanceManager(
@@ -87,6 +88,7 @@ class GridLifeEnv:
         self.food_pos = self._place_randomly()
         self.hot_pos = self._place_randomly()
         self.hazard_pos = self._place_randomly()
+        self.fire_pos = self._place_randomly()
         self.maintenance_manager.reset()
         return self._get_obs()
 
@@ -96,6 +98,7 @@ class GridLifeEnv:
         grid[self.food_pos[0], self.food_pos[1]] = 2
         grid[self.hot_pos[0], self.hot_pos[1]] = 3
         grid[self.hazard_pos[0], self.hazard_pos[1]] = 4
+        grid[self.fire_pos[0], self.fire_pos[1]] = 8
 
         # Add maintenance stations to the grid observation
         station_positions = self.maintenance_manager.get_station_positions()
@@ -127,8 +130,14 @@ class GridLifeEnv:
         if np.array_equal(self.agent_pos, self.hot_pos):
             self.internal_state[1] += 0.1
 
+        fire_triggered = False
+
         if np.array_equal(self.agent_pos, self.hazard_pos):
             self.internal_state[2] -= 0.2
+
+        if np.array_equal(self.agent_pos, self.fire_pos):
+            fire_triggered = True
+            self.fire_pos = self._place_randomly()
 
         # Apply maintenance effects and penalties
         self.internal_state, maintenance_penalty = self.maintenance_manager.apply_maintenance(
@@ -154,6 +163,8 @@ class GridLifeEnv:
 
         info['violation'] = done
         info['internal_state_violation'] = violations
+
+        info['fire_triggered'] = fire_triggered
 
         if self.partial_observability:
             info['internal_state'] = self.internal_state.copy()

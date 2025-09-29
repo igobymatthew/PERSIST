@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import numpy as np
 
 class ContinualLearningManager:
@@ -21,6 +22,7 @@ class ContinualLearningManager:
             device (str): The device to run computations on ('cpu' or 'cuda').
         """
         self.agent = agent
+        self.actor = self._resolve_actor(agent)
         self.ewc_lambda = ewc_lambda
         self.device = device
         self.fisher_information = {}
@@ -43,7 +45,7 @@ class ContinualLearningManager:
         print("--- Consolidating task knowledge for EWC ---")
 
         # 1. Store the current optimal parameters for the actor network
-        self.optimal_params = {name: p.data.clone() for name, p in self.agent.actor.named_parameters() if p.requires_grad}
+        self.optimal_params = {name: p.data.clone() for name, p in self.actor.named_parameters() if p.requires_grad}
 
         # 2. Compute the Fisher Information Matrix
         self._compute_fisher(rehearsal_buffer)
@@ -56,19 +58,19 @@ class ContinualLearningManager:
         Computes the diagonal of the Fisher Information Matrix using states
         from the rehearsal buffer.
         """
-        fisher_new = {name: torch.zeros_like(p.data) for name, p in self.agent.actor.named_parameters() if p.requires_grad}
+        fisher_new = {name: torch.zeros_like(p.data) for name, p in self.actor.named_parameters() if p.requires_grad}
 
-        self.agent.actor.train()
+        self.actor.train()
 
         # Sample states from the rehearsal buffer to estimate Fisher information
         states_sample = rehearsal_buffer.sample(batch_size=256) # Use a fixed batch for estimation
         states = torch.from_numpy(np.array(states_sample)).float().to(self.device)
 
         # Zero gradients before computation
-        self.agent.actor.zero_grad()
+        self.actor.zero_grad()
 
         # Get the action distribution from the policy for the sampled states
-        dist = self.agent.actor(states)
+        dist = self.actor(states)
 
         # Use the log probability of actions sampled from the distribution.
         # The Fisher Information is the expectation of the squared gradient of the log-likelihood.
@@ -76,7 +78,7 @@ class ContinualLearningManager:
         log_prob = dist.log_prob(dist.sample()).sum()
         log_prob.backward()
 
-        for name, param in self.agent.actor.named_parameters():
+        for name, param in self.actor.named_parameters():
             if param.grad is not None:
                 fisher_new[name] = param.grad.data.pow(2)
 
@@ -102,10 +104,18 @@ class ContinualLearningManager:
             return torch.tensor(0.0, device=self.device)
 
         penalty = 0.0
-        for name, param in self.agent.actor.named_parameters():
+        for name, param in self.actor.named_parameters():
             if name in self.fisher_information:
                 fisher = self.fisher_information[name]
                 opt_param = self.optimal_params[name]
                 penalty += (fisher * (param - opt_param).pow(2)).sum()
 
         return self.ewc_lambda * penalty
+
+    def _resolve_actor(self, agent) -> nn.Module:
+        if hasattr(agent, 'actor') and isinstance(agent.actor, nn.Module):
+            return agent.actor
+        if hasattr(agent, 'policy') and hasattr(agent.policy, 'actor') and isinstance(agent.policy.actor, nn.Module):
+            return agent.policy.actor
+        raise ValueError("ContinualLearningManager requires an agent with an actor network.")
+

@@ -206,7 +206,7 @@ class ExperimentCoordinator:
             'episode': episode,
             'total_steps': self.total_steps,
             'agent_state_dict': self.agent.get_state(),
-            'optimizer_state_dict': self.agent.optimizer.state_dict(),
+            'optimizer_state_dict': self.agent.get_optimizer_state(),
         }
         self.persistence_manager.save_checkpoint(state, self.total_steps)
 
@@ -219,7 +219,7 @@ class ExperimentCoordinator:
             self.start_episode = state.get('episode', 0) + 1
             self.total_steps = state.get('total_steps', 0)
             self.agent.load_state(state.get('agent_state_dict'))
-            if hasattr(self.agent, 'optimizer') and 'optimizer_state_dict' in state:
-                self.agent.optimizer.load_state_dict(state['optimizer_state_dict'])
+            if 'optimizer_state_dict' in state:
+                self.agent.load_optimizer_state(state['optimizer_state_dict'])
             print(f"--- Resumed from checkpoint at episode {self.start_episode}, step {self.total_steps} ---")
         return state

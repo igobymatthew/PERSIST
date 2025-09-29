@@ -1,6 +1,7 @@
 import os
 import torch
 import hashlib
+import zlib
 import json
 import logging
 from datetime import datetime
@@ -41,7 +42,7 @@ class PersistenceManager:
     def _calculate_crc32(self, filepath):
         """Calculates the CRC32 checksum of a file."""
         with open(filepath, "rb") as f:
-            file_hash = hashlib.crc32(f.read())
+            file_hash = zlib.crc32(f.read())
         return file_hash
 
     def save_checkpoint(self, state, step):

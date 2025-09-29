@@ -51,3 +51,19 @@ class MPCAgent:
         separately in the main training loop. This method is a no-op.
         """
         pass
+
+    def get_state(self):
+        return {}
+
+    def load_state(self, state):
+        # The MPC agent has no trainable parameters to restore.
+        return
+
+    def get_optimizer_state(self):
+        return {}
+
+    def load_optimizer_state(self, state):
+        return
+
+    def get_optimizers(self):
+        return {}

@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import numpy as np
+
 from .sac import SAC
 from .cvar_sac import CVAR_SAC
+
 
 class PersistAgent:
     def __init__(self, obs_dim, act_dim, act_limit, risk_sensitive_config=None):
@@ -34,3 +38,38 @@ class PersistAgent:
     def to(self, device):
         self.policy.to(device)
         return self
+
+    def get_state(self):
+        if hasattr(self.policy, "get_state"):
+            return self.policy.get_state()
+        return self.policy.state_dict()
+
+    def load_state(self, state):
+        if not state:
+            return
+        if hasattr(self.policy, "load_state"):
+            self.policy.load_state(state)
+        else:
+            self.policy.load_state_dict(state)
+
+    def get_optimizer_state(self):
+        if hasattr(self.policy, "get_optimizer_state"):
+            return self.policy.get_optimizer_state()
+        optimizers = self.get_optimizers()
+        return {name: optimizer.state_dict() for name, optimizer in optimizers.items()}
+
+    def load_optimizer_state(self, state):
+        if not state:
+            return
+        if hasattr(self.policy, "load_optimizer_state"):
+            self.policy.load_optimizer_state(state)
+            return
+        for name, optimizer in self.get_optimizers().items():
+            optimizer_state = state.get(name)
+            if optimizer_state:
+                optimizer.load_state_dict(optimizer_state)
+
+    def get_optimizers(self):
+        if hasattr(self.policy, "get_optimizers"):
+            return self.policy.get_optimizers()
+        return {}

@@ -43,10 +43,13 @@ rewards:
   intrinsic: "empowerment"  # or "surprise" or "rnd"
 training:
   # --- Single-agent settings ---
+  epochs: 200
+  max_steps: 500000
   algo: "SAC"
   update_every: 64
   model_rollouts: 5
   amortize_after_steps: 20000
+  checkpoint_every: 10000
 
   # --- Multi-agent settings ---
   scheme: "ctde"

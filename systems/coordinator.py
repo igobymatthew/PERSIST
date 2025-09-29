@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 
+from components.fire_event import FireEvent
 from utils.trainer_utils import log_episode_data, CurriculumScheduler
 
 class ExperimentCoordinator:
@@ -79,6 +80,14 @@ class ExperimentCoordinator:
                 next_external_obs, task_reward, done, info = self.env.step(safe_action)
                 # print(f"[Coordinator] Step {ep_len}: Env stepped.")
                 true_next_internal_state = info['internal_state'] if self.is_partially_observable else next_external_obs[-self.env.internal_dim:]
+
+                if info.get('fire_triggered'):
+                    actor_model = getattr(self.agent, 'actor', None)
+                    if actor_model is None and hasattr(self.agent, 'policy'):
+                        actor_model = getattr(self.agent.policy, 'actor', None)
+                    FireEvent.apply(actor_model)
+                    if self.continual_learning_manager and self.rehearsal_buffer:
+                        self.continual_learning_manager.consolidate(self.rehearsal_buffer)
 
                 if self.is_partially_observable:
                     with torch.no_grad():

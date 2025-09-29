@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,22 @@ class PersistenceManager:
     def __init__(self, checkpoint_dir, retain_n=5):
         self.checkpoint_dir = checkpoint_dir
         self.retain_n = retain_n
-        os.makedirs(self.checkpoint_dir, exist_ok=True)
+        self._ensure_checkpoint_dir()
+
+    def _ensure_checkpoint_dir(self):
+        path = Path(self.checkpoint_dir)
+        current = Path(path.anchor) if path.is_absolute() else Path()
+        for part in path.parts:
+            if part in ('', path.anchor, path.root):
+                continue
+            if current == Path():
+                current = Path(part)
+            else:
+                current = current / part
+            try:
+                os.mkdir(current)
+            except FileExistsError:
+                continue
 
     def _get_checkpoint_path(self, step):
         return os.path.join(self.checkpoint_dir, f"checkpoint_{step}.pt")

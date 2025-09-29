@@ -498,11 +498,19 @@ class ComponentFactory:
         if allocator_config.get('mode', 'none') == 'none':
             return None
 
-        resource_config = {
-            'food': self.config['resource_model']['food']['initial_density'] * 10 * 10
-        }
+        resource_model_config = self.config.get('resource_model', {})
+        resource_config = {}
 
-        allocator = ResourceAllocator(resource_config)
+        if resource_model_config:
+            grid_width = self.config.get('multiagent', {}).get('grid_width', 10)
+            grid_height = self.config.get('multiagent', {}).get('grid_height', 10)
+            total_cells = grid_width * grid_height
+
+            for resource_name, resource_settings in resource_model_config.items():
+                density = resource_settings.get('initial_density', 0.0)
+                resource_config[resource_name] = density * total_cells
+
+        allocator = ResourceAllocator(resource_config, allocator_config)
         print("✅ Resource allocator initialized.")
         return allocator
 

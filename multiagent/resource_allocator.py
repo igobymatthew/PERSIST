@@ -27,8 +27,18 @@ class ResourceAllocator:
         self._resources = resource_config.copy()
         self.mode = allocator_config.get('mode', 'none')
         self.alpha = allocator_config.get('alpha', 1.0) # For alpha-fairness
+        self.fairness = allocator_config.get('fairness')
+        self.tax = allocator_config.get('tax', 0.0)
+        self.conflict_resolution = allocator_config.get('conflict_resolution')
         self._lock = threading.Lock()
-        logger.info(f"ResourceAllocator initialized in '{self.mode}' mode with resources: {self._resources}")
+        logger.info(
+            "ResourceAllocator initialized in '%s' mode with resources: %s | fairness=%s, tax=%s, conflict_resolution=%s",
+            self.mode,
+            self._resources,
+            self.fairness,
+            self.tax,
+            self.conflict_resolution,
+        )
 
     def get_quotas(self, agent_states):
         """

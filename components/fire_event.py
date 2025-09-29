@@ -56,7 +56,7 @@ class FireEvent:
                 if k > flat_abs.numel():
                     k = flat_abs.numel()
                 threshold, _ = torch.kthvalue(flat_abs, k)
-                mask = param.data.abs() < threshold
+                mask = param.data.abs() <= threshold
                 pruned = mask.sum().item()
                 if pruned > 0:
                     param.data[mask] = 0.0

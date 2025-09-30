@@ -25,6 +25,13 @@ This document captures potential enhancements to improve the framework's user ex
 - **Annotated Sample Run**: Publish a walkthrough transcript that highlights each CLI step with accompanying screenshots or TUI captures, showing how visual cues evolve as the user advances.
 - **UX Checklist**: Maintain a checklist in the docs for contributors describing required progression cues (progress bars, milestone markers, summaries) so UI consistency persists as features evolve.
 
+## 4.5 Beginner-Centric Onboarding Enhancements
+- **First-Run Guided Tour**: Detect when a user launches `main.py` for the first time and overlay contextual hints (e.g., "This wizard configures your first persistence experiment") that reference the core workflow described in `docs/roadmap.md`. Provide shortcuts to skip or replay the tour so newcomers can revisit explanations later.
+- **Scenario Templates Library**: Bundle a curated "Getting Started" library of experiment presets that mirror the staged implementation path from `docs/theory.md` (Phase 1 → Phase 3). Each template should include inline callouts explaining why certain hyperparameters matter for persistence so beginners can learn by tweaking safe defaults.
+- **Interactive Glossary Drawer**: Embed a toggleable glossary in the CLI or dashboard that surfaces definitions for persistence-specific terms (e.g., viability set, shield, near-boundary buffer) pulled from `docs/theory.md` and `docs/training_resilience.md`. Highlight glossary terms when they appear in prompts so new users can expand them in-place.
+- **Practice Mode Sandbox**: Offer a low-stakes simulation mode that replays recorded demonstrations with narration explaining key decisions (aligning with the roadmap's suggestion to highlight single-agent foundations before multi-agent complexity). Pair the narration with visual markers for homeostatic rewards, shield interventions, and fire recovery tactics so learners can map theory to behavior.
+- **Onboarding Progress Tracker**: Add a persistent checklist that spans documentation and CLI milestones (e.g., "Read Quickstart Flowchart", "Run practice sandbox", "Launch first training run"). Synchronize completion states with telemetry logs so beginners receive gentle reminders about recommended next steps without feeling overwhelmed.
+
 ## 5. Accessibility and Customization
 - **Configurable Themes**: Offer light/dark and high-contrast themes for the CLI/dashboard to accommodate different lighting conditions and accessibility needs.
 - **Toggleable Animations**: Allow users to enable or disable animated progress bars or transitions to support environments where static output is preferred (e.g., log aggregation systems).

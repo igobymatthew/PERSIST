@@ -107,6 +107,7 @@ class LoRAInferencePipeline:
         tokenizer_class: Optional[type] = None,
         base_model_kwargs: Optional[Dict[str, Any]] = None,
         tokenizer_kwargs: Optional[Dict[str, Any]] = None,
+        tokenizer_call_kwargs: Optional[Dict[str, Any]] = None,
         torch_dtype: Optional[Union[str, torch.dtype]] = None,
         device: Optional[Union[str, torch.device]] = None,
         strict_loading: bool = True,
@@ -123,7 +124,8 @@ class LoRAInferencePipeline:
         self._base_model_class = base_model_class
         self._tokenizer_class = tokenizer_class
         self._base_model_kwargs = dict(base_model_kwargs or {})
-        self._tokenizer_kwargs = dict(tokenizer_kwargs or {})
+        self._tokenizer_init_kwargs = dict(tokenizer_kwargs or {})
+        self._tokenizer_call_kwargs = dict(tokenizer_call_kwargs or {})
         self._dtype = _resolve_dtype(torch_dtype)
         self._device = torch.device(device) if device is not None else None
         self._strict_loading = strict_loading
@@ -170,13 +172,22 @@ class LoRAInferencePipeline:
 
     __call__ = forward
 
-    def generate(self, prompt: Union[str, Sequence[str]], **generate_kwargs):
+    def generate(
+        self,
+        prompt: Union[str, Sequence[str]],
+        *,
+        tokenizer_call_kwargs: Optional[Dict[str, Any]] = None,
+        **generate_kwargs,
+    ):
         """Generate text using the loaded model and tokenizer."""
 
         if self.model is None or self.tokenizer is None:
             raise RuntimeError("Text generation requires a loaded model and tokenizer.")
 
-        encoded = self.tokenizer(prompt, return_tensors="pt", **self._tokenizer_kwargs)
+        call_kwargs = dict(self._tokenizer_call_kwargs)
+        if tokenizer_call_kwargs is not None:
+            call_kwargs.update(tokenizer_call_kwargs)
+        encoded = self.tokenizer(prompt, return_tensors="pt", **call_kwargs)
         target_device = self._inference_device(self.model)
         encoded = {k: v.to(target_device) for k, v in encoded.items()}
         self.model.eval()
@@ -306,7 +317,7 @@ class LoRAInferencePipeline:
                 "transformers must be installed to load tokenizers by identifier.",
             )
             tokenizer_cls = self._tokenizer_class or getattr(transformers_module, "AutoTokenizer")
-            kwargs = dict(self._tokenizer_kwargs)
+            kwargs = dict(self._tokenizer_init_kwargs)
             return tokenizer_cls.from_pretrained(source, **kwargs)
         return source
 

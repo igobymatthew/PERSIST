@@ -1,10 +1,17 @@
 from pathlib import Path
 import sys
 
+import pytest
 import torch
 from torch import nn
 
-from peft import LoraConfig, TaskType, get_peft_model
+try:  # pragma: no cover - simple availability guard
+    from peft import LoraConfig, TaskType, get_peft_model
+except ModuleNotFoundError:  # pragma: no cover
+    LoraConfig = TaskType = get_peft_model = None  # type: ignore[assignment]
+    PEFT_AVAILABLE = False
+else:  # pragma: no cover
+    PEFT_AVAILABLE = True
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -34,6 +41,7 @@ def _create_lora_adapter(path, fill_a: float, fill_b: float) -> None:
     peft_model.save_pretrained(str(path))
 
 
+@pytest.mark.skipif(not PEFT_AVAILABLE, reason="peft is required for adapter tests")
 def test_pipeline_merges_single_adapter(tmp_path):
     base_path = tmp_path / "backbone.pt"
     torch.save(_make_base_model().state_dict(), base_path)
@@ -59,6 +67,7 @@ def test_pipeline_merges_single_adapter(tmp_path):
     assert pipeline.loaded_adapter_names == ("adapter_0",)
 
 
+@pytest.mark.skipif(not PEFT_AVAILABLE, reason="peft is required for adapter tests")
 def test_pipeline_combines_multiple_adapters(tmp_path):
     base_path = tmp_path / "backbone.pt"
     torch.save(_make_base_model().state_dict(), base_path)
@@ -88,3 +97,40 @@ def test_pipeline_combines_multiple_adapters(tmp_path):
     expected = torch.tensor([[13.5, 14.5, 15.5, 16.5]])
     assert torch.allclose(output, expected)
     assert pipeline.loaded_adapter_names == ("adapter_0", "adapter_1")
+
+
+def test_generate_respects_tokenizer_init_kwargs():
+    class DummyTokenizer:
+        def __init__(self, padding_side: str = "right"):
+            self.padding_side = padding_side
+
+        def __call__(self, prompt, return_tensors="pt", **kwargs):
+            if "padding_side" in kwargs:
+                raise AssertionError("padding_side should not be passed at call time")
+            batch_size = 1 if isinstance(prompt, str) else len(prompt)
+            input_ids = torch.ones(batch_size, 1, dtype=torch.long)
+            return {"input_ids": input_ids}
+
+        def decode(self, ids, skip_special_tokens=True):
+            return "decoded"
+
+    class DummyModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.dummy = nn.Parameter(torch.zeros(1))
+
+        def forward(self, *args, **kwargs):
+            raise NotImplementedError
+
+        def generate(self, input_ids, **kwargs):
+            return torch.ones_like(input_ids)
+
+    tokenizer_instance = DummyTokenizer(padding_side="left")
+    pipeline = LoRAInferencePipeline(
+        base_model=DummyModel(),
+        tokenizer=lambda: tokenizer_instance,
+        tokenizer_kwargs={"padding_side": "left"},
+    )
+
+    pipeline.load()
+    assert pipeline.generate("prompt") == "decoded"

@@ -10,3 +10,5 @@ prometheus-client
 questionary
 rich
 pytest
+peft
+transformers

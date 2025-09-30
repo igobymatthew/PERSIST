@@ -6,6 +6,8 @@ Here’s a minimal-but-complete framework you can implement. It fuses (1) explic
 
 This project includes an interactive command-line interface (CLI) to simplify running experiments.
 
+If you are designing training loops, see [`docs/training_resilience.md`](docs/training_resilience.md) for optimizer and LoRA adapter guidance tailored to PERSIST's fire-reset philosophy.
+
 ### 1. Environment Setup
 
 It is recommended to use Conda to manage dependencies.

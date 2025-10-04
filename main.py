@@ -1,6 +1,9 @@
 import os
 import yaml
 import questionary
+import math
+import random
+import importlib
 from typing import Callable, Optional, TypeVar, Sequence
 
 from rich.console import Console
@@ -14,6 +17,10 @@ from systems.persistence import PersistenceManager
 from utils.trainer import Trainer
 from utils.robust_trainer import RobustTrainer
 from utils.multi_agent_trainer import MultiAgentTrainer
+from evolution.ga_core import GA, Individual
+from evolution.operators import uniform_crossover, gaussian_mutation
+from evolution.nsga2 import nsga2_select
+
 
 def get_base_config():
     """Loads the default config.yaml to be used as a template."""
@@ -142,6 +149,7 @@ def _render_top_level_summary(config: dict) -> None:
         "curriculum": config.get("curriculum", {}).get("enabled", False),
         "telemetry": config.get("telemetry", {}).get("enabled", False),
         "risk_sensitive": config.get("risk_sensitive", {}).get("enabled", False),
+        "evolution": config.get("evolution", {}).get("enabled", False),
     }
 
     _render_summary_card(
@@ -444,6 +452,42 @@ def generate_robust_config():
 
     return _run_common_walkthroughs(config)
 
+def generate_ga_config():
+    """Generates a configuration for a GA-based experiment."""
+    print("--- Generating GA-based experiment configuration ---")
+    config = get_base_config()
+
+    # Disable other modes
+    config['multiagent']['enabled'] = False
+    config['adversarial']['enabled'] = False
+    config['risk_sensitive']['enabled'] = False
+
+    # Enable and configure evolution
+    config['evolution'] = {
+        'enabled': True,
+        'algorithm': 'nsga2',
+        'pop_size': 50,
+        'generations': 10,
+        'elitism': 2,
+        'mutation_rate': 0.1,
+        'viability': 'constraints.viability_policy',
+        'evaluator': 'evaluators.rl_metaeval.eval_rl_individual',
+        'search_space': 'search_spaces.ppo_small_net_v1',
+        'fire': {
+            'trigger': 'plateau:3',
+            'intensity': 1.6,
+            'ewc_mask': True,
+        }
+    }
+    console.print(
+        Panel(
+            "GA experiment configured. The GA will optimize hyperparameters using a dummy evaluator.",
+            border_style="green",
+            box=box.HEAVY,
+        )
+    )
+    return config
+
 def generate_custom_config():
     """Guides the user through a series of questions to build a custom config."""
     print("--- Generating custom configuration ---")
@@ -479,10 +523,82 @@ def generate_custom_config():
     return _run_common_walkthroughs(config)
 
 
+def run_ga_experiment(config):
+    """Runs a GA-based experiment using the 'evolution' config."""
+    evo_config = config['evolution']
+
+    # 1. Dynamically load the evaluator function
+    eval_path = evo_config['evaluator']
+    eval_module_name, eval_func_name = eval_path.rsplit('.', 1)
+    eval_module = importlib.import_module(f"evolution.{eval_module_name}")
+    fitness_fn = getattr(eval_module, eval_func_name)
+
+    # 2. Dynamically load the search space
+    space_path = evo_config['search_space']
+    space_module_name, space_func_name = space_path.rsplit('.', 1)
+    space_module = importlib.import_module(f"evolution.{space_module_name}")
+    search_space_fn = getattr(space_module, space_func_name)
+    search_space = search_space_fn()
+
+    # 3. Define the init function based on the search space
+    def init_fn() -> Individual:
+        genes = {}
+        for param, spec in search_space.items():
+            if spec[0] == 'choice':
+                genes[param] = random.choice(spec[1])
+            elif spec[0] == 'uniform':
+                genes[param] = random.uniform(spec[1], spec[2])
+            elif spec[0] == 'log_uniform':
+                genes[param] = 10**random.uniform(math.log10(spec[1]), math.log10(spec[2]))
+        return {"genes": genes}
+
+    # 4. Dynamically load the viability function
+    viability_path = evo_config['viability']
+    module_name, func_name = viability_path.rsplit('.', 1)
+    viability_module = importlib.import_module(f"evolution.{module_name}")
+    viability_fn = getattr(viability_module, func_name)
+
+    # 5. Setup the GA
+    ga = GA(
+        init_fn=init_fn,
+        fitness_fn=fitness_fn,
+        select_fn=nsga2_select,  # Using nsga2_select as a placeholder
+        crossover_fn=uniform_crossover,
+        mutate_fn=gaussian_mutation,
+        viability_fn=viability_fn,
+        pop_size=evo_config['pop_size'],
+        elitism=evo_config['elitism'],
+        mutation_rate=evo_config['mutation_rate'],
+        max_generations=evo_config['generations'],
+        seed=config.get('seed')
+    )
+
+    # 6. Run the GA
+    console.print("\n[bold cyan]Starting Genetic Algorithm[/bold cyan]")
+    final_pop, final_fits = ga.run()
+    console.print("\n[bold green]Genetic Algorithm Finished[/bold green]")
+
+    # 7. Print results
+    if final_fits:
+        key = list(final_fits[0].keys())[0]
+        ranked_pop = [p for _, p in sorted(zip(final_fits, final_pop), key=lambda x: x[0][key])]
+        best_ind = ranked_pop[0]
+
+        summary_payload = {
+            "best_fitness": sorted(final_fits, key=lambda x: x[key])[0],
+            "best_genes": yaml.dump(best_ind['genes'], indent=2),
+        }
+        _render_summary_card("GA Run Summary", summary_payload, subtitle="Best individual found")
+
+
 def run_experiment(config):
     """
     Initializes components and runs the experiment based on the given config.
     """
+    if config.get('evolution', {}).get('enabled', False):
+        run_ga_experiment(config)
+        return
+
     # 1. Initialize the factory with the generated config
     factory = ComponentFactory(config=config)
 
@@ -533,6 +649,7 @@ def main():
             "Run a standard single-agent experiment (Recommended for beginners)",
             "Run a multi-agent experiment",
             "Run a robust agent experiment (with adversarial training)",
+            "Run a GA-based experiment (meta-optimization)",
             "Run a custom experiment (you will be asked a few questions)",
             "Run directly from `config.yaml` (original behavior)",
             "Exit"
@@ -549,6 +666,8 @@ def main():
         config = generate_multi_agent_config()
     elif "robust agent" in choice:
         config = generate_robust_config()
+    elif "GA-based" in choice:
+        config = generate_ga_config()
     elif "custom experiment" in choice:
         config = generate_custom_config()
     elif "from `config.yaml`" in choice:

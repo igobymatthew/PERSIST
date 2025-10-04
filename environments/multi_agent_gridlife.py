@@ -39,6 +39,7 @@ class MultiAgentGridLifeEnv(gym.Env):
 
         self.timestep = 0
         self.max_steps = self.config['multiagent']['termination']['max_steps']
+        self.energy_decay = 0.01
 
         # World state
         self.food_map = np.zeros(self.grid_size)
@@ -80,7 +81,7 @@ class MultiAgentGridLifeEnv(gym.Env):
             self.agent_positions[agent_id] = np.clip(self.agent_positions[agent_id] + action, [0, 0], [self.grid_size[0] - 1, self.grid_size[1] - 1]).astype(int)
 
             # Update internal state (energy decay)
-            self.internal_states[agent_id][0] -= 0.01
+            self.internal_states[agent_id][0] -= self.energy_decay
 
             # Check for resource consumption
             pos = self.agent_positions[agent_id]

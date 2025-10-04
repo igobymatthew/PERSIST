@@ -16,4 +16,5 @@ dependencies:
   - gymnasium
   - prometheus-client
   - questionary
+  - rich
   - pytest

@@ -60,15 +60,20 @@ class TestMultiAgentEnv(unittest.TestCase):
 
     def test_agent_termination(self):
         """Test that an agent is terminated and removed correctly."""
-        # Force agent_0's energy to a low value
-        self.env.internal_states['agent_0'][0] = 0.01
+        # Ensure agent_0 is not on a food tile to prevent energy gain
+        agent_pos = self.env.agent_positions['agent_0']
+        if self.env.food_map[agent_pos[0], agent_pos[1]] > 0:
+            self.env.food_map[agent_pos[0], agent_pos[1]] = 0
+
+        # Set energy to the exact decay amount, so it becomes 0 after one step
+        self.env.internal_states['agent_0'][0] = self.env.energy_decay
 
         actions = {'agent_0': np.array([0, 0]), 'agent_1': np.array([0, 0])}
 
-        # The step will cause energy to drop below 0
+        # The step will cause energy to drop to exactly 0
         obs, rewards, terminations, truncations, infos = self.env.step(actions)
 
-        self.assertTrue(terminations['agent_0'], "Agent 0 should be terminated.")
+        self.assertTrue(terminations.get('agent_0', False), "Agent 0 should be terminated.")
         self.assertNotIn('agent_0', self.env.alive_agents, "Agent 0 should be removed from alive agents.")
         self.assertNotIn('agent_0', obs, "Dead agents should not be in the next observation.")
         self.assertIn('agent_1', obs, "Agent 1 should still be in the observation.")

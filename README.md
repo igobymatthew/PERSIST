@@ -1,7 +1,21 @@
 # PERSIST
 A ml/ai framework for persistence. 
 Here’s a minimal-but-complete framework you can implement. It fuses (1) explicit homeostasis, (2) a viability kernel/shield, and (3) intrinsic persistence (empowerment or surprise minimization) on top of ordinary task reward.
+---
+Philosophical Foundations
 
+This philosophy draws from several deep traditions:
+
+| Domain                     | Concept                         | Parallel in Persistence                                       |
+| -------------------------- | ------------------------------- | ------------------------------------------------------------- |
+| **Biology**                | Autopoiesis (Maturana & Varela) | Systems maintain themselves through internal regeneration     |
+| **Cybernetics**            | Homeostatic feedback loops      | Error correction as persistence strategy                      |
+| **Reinforcement Learning** | Reward ≈ survival signal        | Long-term viability replaces immediate reward                 |
+| **Thermodynamics**         | Entropy management              | Fire as controlled entropy reduction                          |
+| **Philosophy of Mind**     | Process ontology                | “Being” is replaced by “becoming” — existence is cyclical     |
+| **Mythology**              | Phoenix cycle                   | Destruction and rebirth as persistence through transformation |
+
+---
 ## Getting Started
 
 This project includes an interactive command-line interface (CLI) to simplify running experiments.

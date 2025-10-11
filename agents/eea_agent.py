@@ -130,6 +130,11 @@ class EntropyBuffer:
             self.history.pop(0)
         return state
 
+    def reset(self) -> None:
+        """Clear stored history to remove lingering momentum between sessions."""
+
+        self.history.clear()
+
 
 class ModulationLayer:
     """Aggregates the modulation components described in the specification."""
@@ -152,6 +157,11 @@ class ModulationLayer:
         elif ratio > hi:
             state.modulated_fear = state.effective_fear() * (1 + (ratio - hi))
         return state
+
+    def reset(self) -> None:
+        """Reset modulation stateful components such as the entropy history."""
+
+        self.entropy_buffer.reset()
 
 
 class ProcessingLayer:
@@ -243,6 +253,13 @@ class MetaLayer:
         self.equilibrium_prior = (1 - self.smoothing) * self.equilibrium_prior + self.smoothing * observed_ratio
         return self.equilibrium_prior
 
+    def reset(self, *, equilibrium_prior: Optional[float] = None) -> None:
+        """Re-initialize the prior, optionally overriding the default value."""
+
+        if equilibrium_prior is None:
+            equilibrium_prior = 0.75
+        self.equilibrium_prior = equilibrium_prior
+
 
 @dataclass
 class GovernanceLayer:
@@ -314,6 +331,12 @@ class EmotionalEquilibriumAgent:
             "meaning": meaning,
             "equilibrium_prior": equilibrium_prior,
         }
+
+    def reset(self, *, equilibrium_prior: Optional[float] = None) -> None:
+        """Reset internal state between evaluation sessions."""
+
+        self.modulation.reset()
+        self.meta.reset(equilibrium_prior=equilibrium_prior)
 
 
 __all__ = [

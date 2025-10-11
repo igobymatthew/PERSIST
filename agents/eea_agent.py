@@ -11,7 +11,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Mapping, Optional, Tuple
+from typing import Callable, Dict, List, Mapping, Optional, Tuple
+
+
+def _clamp(value: float, lower: float = 0.0, upper: float = 1.0) -> float:
+    """Clamp ``value`` between ``lower`` and ``upper`` (inclusive)."""
+
+    return max(lower, min(upper, value))
 
 
 @dataclass
@@ -66,7 +72,7 @@ class CorePrincipleLayer:
         """
 
         ratio = state.ratio()
-        return max(0.0, min(1.0, ratio))
+        return _clamp(ratio)
 
 
 @dataclass
@@ -77,8 +83,8 @@ class ValenceRegulator:
     fear_weight: float = 0.5
 
     def regulate(self, state: EmotionState) -> EmotionState:
-        happiness = max(0.0, state.happiness * self.happiness_weight)
-        fear = max(0.0, state.fear * self.fear_weight)
+        happiness = _clamp(state.happiness * self.happiness_weight)
+        fear = _clamp(state.fear * self.fear_weight)
         state.modulated_happiness = happiness
         state.modulated_fear = fear
         return state
@@ -98,9 +104,9 @@ class ContrastNormalizer:
             adjustment = self.contrast_floor - delta
             # push signals apart symmetrically to preserve mean intensity
             happiness += adjustment / 2
-            fear = max(0.0, fear - adjustment / 2)
-        state.modulated_happiness = happiness
-        state.modulated_fear = fear
+            fear = _clamp(fear - adjustment / 2)
+        state.modulated_happiness = _clamp(happiness)
+        state.modulated_fear = _clamp(fear)
         return state
 
 
@@ -121,9 +127,9 @@ class EntropyBuffer:
         delta_h = abs(last.happiness - state.happiness)
         delta_f = abs(last.fear - state.fear)
         if delta_h < self.tolerance:
-            state.modulated_happiness = state.effective_happiness() * 0.95
+            state.modulated_happiness = _clamp(state.effective_happiness() * 0.95)
         if delta_f < self.tolerance:
-            state.modulated_fear = state.effective_fear() * 1.05
+            state.modulated_fear = _clamp(state.effective_fear() * 1.05)
 
         self.history.append(EmotionState(state.happiness, state.fear))
         if len(self.history) > self.max_history:
@@ -136,14 +142,19 @@ class EntropyBuffer:
         self.history.clear()
 
 
+@dataclass
 class ModulationLayer:
     """Aggregates the modulation components described in the specification."""
 
-    def __init__(self) -> None:
-        self.valence_regulator = ValenceRegulator()
-        self.contrast_normalizer = ContrastNormalizer()
-        self.entropy_buffer = EntropyBuffer()
-        self.target_range: Tuple[float, float] = (0.7, 0.8)
+    target_range: Tuple[float, float] = (0.7, 0.8)
+    valence_regulator: ValenceRegulator = field(default_factory=ValenceRegulator)
+    contrast_normalizer: ContrastNormalizer = field(default_factory=ContrastNormalizer)
+    entropy_buffer: EntropyBuffer = field(default_factory=EntropyBuffer)
+
+    def __post_init__(self) -> None:
+        lo, hi = self.target_range
+        if not (0.0 <= lo <= hi <= 1.0):
+            raise ValueError("target_range must lie within [0, 1] and be ordered")
 
     def modulate(self, state: EmotionState) -> EmotionState:
         state = self.valence_regulator.regulate(state)
@@ -153,9 +164,13 @@ class ModulationLayer:
         ratio = state.ratio()
         lo, hi = self.target_range
         if ratio < lo:
-            state.modulated_happiness = state.effective_happiness() * (1 + (lo - ratio))
+            state.modulated_happiness = _clamp(
+                state.effective_happiness() * (1 + (lo - ratio))
+            )
         elif ratio > hi:
-            state.modulated_fear = state.effective_fear() * (1 + (ratio - hi))
+            state.modulated_fear = _clamp(
+                state.effective_fear() * (1 + (ratio - hi))
+            )
         return state
 
     def reset(self) -> None:
@@ -187,8 +202,8 @@ class ProcessingLayer:
         else:
             fear += self.calibration_gain
 
-        state.modulated_happiness = max(0.0, happiness)
-        state.modulated_fear = max(0.0, fear)
+        state.modulated_happiness = _clamp(happiness)
+        state.modulated_fear = _clamp(fear)
         return state
 
 
@@ -216,8 +231,8 @@ class IntegrationLayer:
         fear = state.effective_fear()
         happiness *= 1 + weights[0] * 0.1 + weights[1] * 0.05
         fear *= 1 + weights[2] * 0.1
-        state.modulated_happiness = happiness
-        state.modulated_fear = fear
+        state.modulated_happiness = _clamp(happiness)
+        state.modulated_fear = _clamp(fear)
         return state
 
 
@@ -228,18 +243,34 @@ class BehaviorState(Enum):
     MANIA = "mania"
 
 
+@dataclass
 class OutputLayer:
     """Maps the final ratio to a qualitative behavioral manifestation."""
 
+    vital_range: Tuple[float, float] = (0.7, 0.8)
+    apathy_threshold: float = 0.2
+    mania_threshold: float = 0.8
+
+    def __post_init__(self) -> None:
+        lo, hi = self.vital_range
+        if not (0.0 <= self.apathy_threshold <= lo <= hi <= 1.0):
+            raise ValueError("Behavior thresholds must satisfy apathy <= vital_range <= 1.0")
+        if not (hi <= self.mania_threshold <= 1.0):
+            raise ValueError("Mania threshold must be >= vital_range[1] and <= 1.0")
+
     def classify(self, state: EmotionState) -> BehaviorState:
         ratio = state.ratio()
-        if 0.7 <= ratio <= 0.8:
+        lo, hi = self.vital_range
+        if lo <= ratio <= hi:
             return BehaviorState.VITAL_ENGAGEMENT
-        if ratio < 0.2:
+        if ratio < self.apathy_threshold:
             return BehaviorState.APATHY
-        if ratio < 0.7:
+        if ratio < lo:
             return BehaviorState.ANXIETY
-        return BehaviorState.MANIA
+        if ratio >= self.mania_threshold:
+            return BehaviorState.MANIA
+        # Between ``hi`` and ``mania_threshold`` we consider the system heightened yet stable.
+        return BehaviorState.VITAL_ENGAGEMENT
 
 
 @dataclass
@@ -266,16 +297,30 @@ class GovernanceLayer:
     """Defines the evaluative function for meaning derived from H and F."""
 
     fear_bounds: Tuple[float, float] = (0.2, 0.4)
+    context_weight: float = 0.1
+    vitality_fn: Optional[Callable[[EmotionState], float]] = None
 
-    def meaning(self, state: EmotionState, context: Mapping[str, float] | None = None) -> float:
+    def __post_init__(self) -> None:
+        lo, hi = self.fear_bounds
+        if not (0.0 <= lo <= hi):
+            raise ValueError("fear_bounds must be ordered and non-negative")
+
+    def meaning(
+        self,
+        state: EmotionState,
+        context: Mapping[str, float] | None = None,
+    ) -> float:
         ratio = state.ratio()
         fear = state.effective_fear()
-        happiness = state.effective_happiness()
+        happiness = max(1e-6, state.effective_happiness())
         context_modifier = 0.0
         if context:
             context_modifier = sum(context.values()) / max(1, len(context))
-        fear_term = 1.0 if self.fear_bounds[0] <= fear / max(1e-6, happiness) <= self.fear_bounds[1] else 0.5
-        return ratio * fear_term + 0.1 * context_modifier
+        fear_ratio = fear / happiness
+        lo, hi = self.fear_bounds
+        fear_term = 1.0 if lo <= fear_ratio <= hi else 0.5
+        vitality = self.vitality_fn(state) if self.vitality_fn is not None else ratio * fear_term
+        return vitality + self.context_weight * context_modifier
 
 
 class EmotionalEquilibriumAgent:

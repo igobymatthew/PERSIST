@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import torch
 from components.homeostat import Homeostat
+from components.dynamics_adapter import DynamicsAdapter
 
 def test_homeostat_reward_calculation():
     """
@@ -146,9 +147,43 @@ def test_internal_model_training_and_prediction():
         expected_next_state = torch.tensor([0.6, 0.6], dtype=torch.float32)
 
         # Check if the prediction is reasonably close to the true next state
-        # The model's predict_next returns a numpy array, so we use np.allclose
-        assert np.allclose(predicted_next_state, expected_next_state.numpy(), atol=0.1), \
-            f"Predicted next state {predicted_next_state} is not close to expected {expected_next_state.numpy()}"
+        assert torch.allclose(predicted_next_state, expected_next_state, atol=0.1), \
+            f"Predicted next state {predicted_next_state} is not close to expected {expected_next_state}"
+
+
+def test_dynamics_adapter_linearization_matches_trained_model():
+    internal_dim = 2
+    act_dim = 1
+    model = InternalModel(internal_dim=internal_dim, act_dim=act_dim, hidden_dim=64)
+
+    current_states = torch.tensor([
+        [0.5, 0.5],
+        [0.8, 0.3],
+        [0.2, 0.9]
+    ], dtype=torch.float32)
+    actions = torch.tensor([[0.1], [-0.1], [0.05]], dtype=torch.float32)
+    next_states_true = torch.tensor([
+        [0.6, 0.5],
+        [0.7, 0.3],
+        [0.25, 0.9]
+    ], dtype=torch.float32)
+
+    for _ in range(500):
+        model.train_model(current_states, actions, next_states_true)
+
+    adapter = DynamicsAdapter(model)
+    state = torch.tensor([0.4, 0.6], dtype=torch.float32)
+    action = torch.tensor([0.2], dtype=torch.float32)
+
+    A, B = adapter.get_linearized_dynamics(state, action)
+
+    expected_A_shape = (1, internal_dim, internal_dim)
+    expected_B_shape = (1, internal_dim, act_dim)
+
+    assert A.shape == expected_A_shape
+    assert B.shape == expected_B_shape
+    assert torch.isfinite(A).all()
+    assert torch.isfinite(B).all()
 
 from components.budget_meter import BudgetMeter
 

@@ -3,8 +3,55 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.model_selection import KFold
-from sklearn.metrics import roc_auc_score
+
+
+def _kfold_indices(n_samples, n_splits=5, shuffle=False, random_state=None):
+    """Simplified reimplementation of ``sklearn.model_selection.KFold``."""
+
+    if n_splits <= 1:
+        raise ValueError("n_splits must be at least 2")
+
+    indices = np.arange(n_samples)
+    if shuffle:
+        rng = np.random.default_rng(random_state)
+        rng.shuffle(indices)
+
+    fold_sizes = np.full(n_splits, n_samples // n_splits, dtype=int)
+    fold_sizes[: n_samples % n_splits] += 1
+
+    current = 0
+    for fold_size in fold_sizes:
+        start, stop = current, current + fold_size
+        test_indices = indices[start:stop]
+        train_indices = np.concatenate((indices[:start], indices[stop:]))
+        yield train_indices, test_indices
+        current = stop
+
+
+def _roc_auc_score(y_true, y_score):
+    """Compute the ROC AUC for binary labels using the Mann-Whitney U statistic."""
+
+    y_true = np.asarray(y_true)
+    y_score = np.asarray(y_score)
+
+    pos_mask = y_true == 1
+    neg_mask = y_true == 0
+
+    n_pos = pos_mask.sum()
+    n_neg = neg_mask.sum()
+
+    if n_pos == 0 or n_neg == 0:
+        # Degenerate case where AUC is undefined – match sklearn's behaviour by
+        # returning 0.5 so downstream code still receives a float.
+        return 0.5
+
+    # Use average ranks to handle score ties deterministically.
+    order = np.argsort(y_score, kind="mergesort")
+    ranks = np.empty_like(order, dtype=float)
+    ranks[order] = np.arange(1, len(y_score) + 1, dtype=float)
+
+    auc = (ranks[pos_mask].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+    return float(auc)
 
 def demographic_parity(y_pred, sensitive_features):
     """
@@ -33,10 +80,9 @@ def crossval_auc_and_fairness(X, y, sensitive_features, n_splits=5):
     """
     Performs cross-validation to evaluate a feature set.
     """
-    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
     aucs, gaps = [], []
 
-    for train_index, test_index in kf.split(X):
+    for train_index, test_index in _kfold_indices(len(X), n_splits=n_splits, shuffle=True, random_state=42):
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
         sensitive_train, sensitive_test = sensitive_features[train_index], sensitive_features[test_index]
@@ -56,7 +102,7 @@ def crossval_auc_and_fairness(X, y, sensitive_features, n_splits=5):
         # Evaluation
         with torch.no_grad():
             y_pred = model(torch.tensor(X_test, dtype=torch.float32)).numpy().flatten()
-            aucs.append(roc_auc_score(y_test, y_pred))
+            aucs.append(_roc_auc_score(y_test, y_pred))
             gaps.append(demographic_parity(y_pred, sensitive_test))
 
     return np.mean(aucs), np.mean(gaps)

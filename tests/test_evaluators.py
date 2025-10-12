@@ -1,7 +1,29 @@
+import importlib
+import sys
+
 import numpy as np
 import pytest
 from evolution.evaluators.med_feature_sel import crossval_auc_and_fairness
 from evolution.evaluators.rl_metaeval import train_and_measure
+
+
+def test_med_feature_sel_import_without_sklearn(monkeypatch):
+    """The evaluator should remain importable when scikit-learn is missing."""
+
+    module_name = "evolution.evaluators.med_feature_sel"
+    sys.modules.pop(module_name, None)
+
+    original_import = __import__
+
+    def fail_on_sklearn(name, *args, **kwargs):
+        if name.startswith("sklearn"):
+            raise ModuleNotFoundError("No module named 'sklearn'")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", fail_on_sklearn)
+
+    module = importlib.import_module(module_name)
+    assert hasattr(module, "crossval_auc_and_fairness")
 
 def test_crossval_auc_and_fairness():
     """

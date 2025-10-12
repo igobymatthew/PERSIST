@@ -1,0 +1,338 @@
+Welcome to the PERSIST Framework!
+[auto-response] What would you like to do? -> Run a standard single-agent experiment (Recommended for beginners)
+--- Generating standard single-agent configuration ---
+╭────────────────────────────────────────── Step 1/3: Core Training Hyperparameters ───────────────────────────────────────────╮
+│  ➤ Training  ›  ● Model Capacity  ›  ● Curriculum                                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Core Training Hyperparameters
+[auto-response] Review or modify epochs, step schedules, learning rates, and decay settings? -> True
+[auto-response] Number of training epochs (default: 200) -> 150
+✅ Set Number of training epochs → 150
+[auto-response] Maximum environment interaction steps (default: 500000) -> 250000
+✅ Set Maximum environment interaction steps → 250000
+[auto-response] Gradient updates every N environment steps (default: 64) -> 32
+✅ Set Gradient updates every N environment steps → 32
+[auto-response] Model-based rollouts per update (default: 5) -> 12
+✅ Set Model-based rollouts per update → 12
+[auto-response] Switch shield to amortized mode after N steps (default: 20000) -> 12000
+✅ Set Switch shield to amortized mode after N steps → 12000
+[auto-response] Batch size (default: 1024) -> 256
+✅ Set Batch size → 256
+[auto-response] Discount factor (gamma) (default: 0.99) -> 0.985
+✅ Set Discount factor → 0.985
+[auto-response] Target network decay (tau) (default: 0.005) -> 0.01
+✅ Set Target network decay → 0.01
+[auto-response] Actor learning rate (default: 3e-4) -> 0.00025
+✅ Set Actor learning rate → 0.00025
+[auto-response] Critic learning rate (default: 3e-4) -> 0.00035
+✅ Set Critic learning rate → 0.00035
+[auto-response] Checkpoint every N steps (default: 10000) -> 4000
+✅ Set Checkpoint every N steps → 4000
+╔══════════════════════════════════════════════════════ Training Summary ══════════════════════════════════════════════════════╗
+║ epochs: 150                                                                                                                  ║
+║ max_steps: 250000                                                                                                            ║
+║ update_every: 32                                                                                                             ║
+║ batch_size: 256                                                                                                              ║
+║ actor_lr: 0.00025                                                                                                            ║
+║ critic_lr: 0.00035                                                                                                           ║
+║                                                                                                                              ║
+╚═══════════════════════════════════════════ Review these values before continuing ════════════════════════════════════════════╝
+╭────────────────────────────────────────────────── Step 2/3: Model Capacity ──────────────────────────────────────────────────╮
+│  ✔ Training  ›  ➤ Model Capacity  ›  ● Curriculum                                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Model Capacity
+[auto-response] Adjust hidden dimensions for estimator, empowerment, and safety networks? -> True
+[auto-response] State estimator hidden dimension (default: 128) -> 196
+✅ Set State estimator hidden dimension → 196
+[auto-response] State estimator number of layers (default: 2) -> 3
+✅ Set State estimator number of layers → 3
+[auto-response] Empowerment model hidden dimension (default: 256) -> 320
+✅ Set Empowerment model hidden dimension → 320
+[auto-response] Empowerment rollout depth (k) (default: 4) -> 5
+✅ Set Empowerment rollout depth → 5
+[auto-response] Safety network hidden dimension (default: 128) -> 160
+✅ Set Safety network hidden dimension → 160
+[auto-response] Safety network learning rate (default: 0.0001) -> 0.0002
+✅ Set Safety network learning rate → 0.0002
+╔═══════════════════════════════════════════════════ Model Capacity Summary ═══════════════════════════════════════════════════╗
+║ state_estimator: 3×196                                                                                                       ║
+║ empowerment_hidden: 320                                                                                                      ║
+║ empowerment_k: 5                                                                                                             ║
+║ safety_hidden: 160                                                                                                           ║
+║ safety_lr: 0.0002                                                                                                            ║
+║                                                                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+╭─────────────────────────────────────────────── Step 3/3: Curriculum Schedule ────────────────────────────────────────────────╮
+│  ✔ Training  ›  ✔ Model Capacity  ›  ➤ Curriculum                                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Curriculum Schedule
+[auto-response] Tweak curriculum steps or annealing targets? -> False
+Keeping curriculum schedule unchanged.
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Configuration walkthrough complete! Review the final summary below.                                                          ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Final Configuration Overview
+╔══════════════════════════════════════════════════ Top-Level Configuration ═══════════════════════════════════════════════════╗
+║ multiagent: False                                                                                                            ║
+║ adversarial: False                                                                                                           ║
+║ curriculum: True                                                                                                             ║
+║ telemetry: True                                                                                                              ║
+║ risk_sensitive: False                                                                                                        ║
+║ evolution: False                                                                                                             ║
+║                                                                                                                              ║
+╚══════════════════════════════════════════════════ Primary feature switches ══════════════════════════════════════════════════╝
+adversarial:
+  alpha: 0.01
+  enabled: false
+  epsilon: 0.03
+  num_iter: 7
+agent_types:
+  default:
+    budgets:
+      compute_ms_per_step: 10
+      energy_cap: 1.0
+    cbf:
+      enabled: false
+      relax_penalty: 10.0
+    count: 8
+    homeostasis:
+      mu:
+      - 0.7
+      - 0.5
+      - 0.9
+      w:
+      - 1.0
+      - 0.5
+      - 1.5
+    policy: shared_sac
+    role_embedding_dim: 8
+    shield:
+      conf: 0.97
+      horizon: 8
+      mode: ensemble
+budgets:
+  decrement_per_step: 0.002
+  enabled: false
+  initial_budget: 1.0
+  penalty: -1.0
+continual:
+  consolidate_every: 5000
+  enabled: false
+  ewc_lambda: 5.0
+  rehearsal_capacity: 2000
+curriculum:
+  enabled: true
+  lambda_homeo:
+    end: 0.7
+    start: 0.1
+  lambda_intr:
+    end: 0.3
+    start: 0.05
+  steps: 50000
+  viability_constraints:
+  - comparison: '>='
+    dim_name: energy
+    end: 0.2
+    start: 0.05
+  - comparison: '>='
+    dim_name: temp_min
+    end: 0.3
+    start: 0.1
+  - comparison: <=
+    dim_name: temp_max
+    end: 0.7
+    start: 0.9
+  - comparison: '>='
+    dim_name: integrity
+    end: 0.6
+    start: 0.3
+demonstrations:
+  filepath: demonstrations/expert_demonstrations.npz
+empowerment:
+  hidden_dim: 320
+  k: 5
+  lr: 0.0001
+env:
+  horizon: 512
+  name: GridLife-v0
+  partial_observability: true
+internal_state:
+  dims:
+  - energy
+  - temp
+  - integrity
+  mu:
+  - 0.7
+  - 0.5
+  - 0.9
+  w:
+  - 1.0
+  - 0.5
+  - 1.5
+maintenance:
+  enabled: true
+  penalty_costs:
+    cool_down: 0.1
+    refuel: 0.1
+    repair: 0.3
+  tasks:
+  - refuel
+  - cool_down
+  - repair
+meta_learning:
+  enabled: false
+  learning_rate: 0.01
+  update_frequency: 50
+mpc:
+  enabled: false
+  horizon: 12
+  iterations: 10
+  num_candidates: 1000
+  top_k: 100
+multiagent:
+  collisions:
+    frustration_cost: 0.01
+    priority:
+    - integrity
+    - energy
+    - random
+    single_occupancy: true
+  communication:
+    bandwidth: 8
+    cost_per_bit: 0.001
+    enabled: false
+  enabled: false
+  layout: grid
+  num_agents: 8
+  observation:
+    include_time: true
+    neighbor_radius: 3
+    view_radius: 5
+  remove_dead: true
+  sticky_agents: false
+  termination:
+    max_steps: 1024
+    stop_when_all_dead: true
+    stop_when_resource_exhausted: false
+ood:
+  enabled: false
+  method: energy
+  threshold: -5.0
+population:
+  ensemble_shield:
+    enabled: false
+    ensemble_size: 3
+    vote_method: veto_if_any_unsafe
+resource_allocator:
+  alpha: 1.0
+  conflict_resolution: priority
+  fairness: alpha_fair
+  mode: proportional
+  tax: 0.02
+resource_model:
+  food:
+    carrying_capacity: 1.0
+    initial_density: 0.12
+    regen_rate: 0.02
+    regen_rule: logistic
+  hazards:
+    decay_rate: 0.0
+    spawn_rate: 0.0005
+  heat:
+    drift: 0.001
+    field: perlin
+rewards:
+  intrinsic: surprise
+  lambda_homeo: 0.7
+  lambda_intr: 0.3
+risk_sensitive:
+  enabled: false
+  n_quantiles: 32
+  tau: 0.1
+safety:
+  cbf:
+    delta: 1.0
+    enabled: false
+    relax_penalty: 10.0
+  chance_constraint:
+    dual_lr: 5e-4
+    enabled: false
+    target_violation_rate: 0.005
+safety_network:
+  hidden_dim: 160
+  lr: 0.0002
+safety_probe:
+  enabled: true
+  hidden_sizes:
+  - 64
+  - 64
+  log_path: safety_reports.log
+  lr: 0.001
+state_estimator:
+  hidden_dim: 196
+  lr: 0.001
+  n_layers: 3
+  sequence_length: 16
+telemetry:
+  enabled: true
+  port: 8000
+training:
+  actor_lr: 0.00025
+  algo: SAC
+  amortize_after_steps: 12000
+  batch_size: 256
+  buffer:
+    capacity: 500000
+    seq_len: 1
+    type: joint
+  checkpoint_every: 4000
+  critic_lr: 0.00035
+  epochs: 150
+  gamma: 0.985
+  max_steps: 250000
+  model_rollouts: 12
+  scheme: ctde
+  tau: 0.01
+  update_every: 32
+viability:
+  constraints:
+  - description: Agent must maintain a minimum energy level to operate.
+    name: energy_min
+    operator: '>='
+    recovery_penalty: 1.0
+    threshold: 0.2
+    units: ratio
+    variable: energy
+  - description: Agent's internal temperature must stay within a safe operating range.
+    name: temp_range
+    operator: in
+    recovery_penalty: 1.0
+    threshold:
+    - 0.3
+    - 0.7
+    units: normalized
+    variable: temp
+  - description: Agent's structural integrity must not fall below a critical level.
+    name: integrity_min
+    operator: '>='
+    recovery_penalty: 1.0
+    threshold: 0.6
+    units: ratio
+    variable: integrity
+  near_boundary_buffer:
+    capacity: 4096
+    enabled: true
+    margin_high: 0.65
+    margin_low: 0.35
+  shield:
+    conf: 0.97
+    horizon: 8
+
+---------------------------
+
+[auto-response] Proceed with this configuration? -> False
+Operation cancelled by user.

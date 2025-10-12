@@ -12,3 +12,4 @@ rich
 pytest
 peft
 transformers
+scikit-learn

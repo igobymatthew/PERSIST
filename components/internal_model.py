@@ -36,8 +36,21 @@ class InternalModel(nn.Module):
         return loss.item()
 
     def predict_next(self, x, act):
-        with torch.no_grad():
-            x = torch.as_tensor(x, dtype=torch.float32).unsqueeze(0)
-            act = torch.as_tensor(act, dtype=torch.float32).unsqueeze(0)
-            predicted_next_x = self(x, act)
-        return predicted_next_x.squeeze(0).numpy()
+        device = next(self.parameters()).device
+
+        x_tensor = torch.as_tensor(x, dtype=torch.float32, device=device)
+        act_tensor = torch.as_tensor(act, dtype=torch.float32, device=device)
+
+        added_batch_dim = False
+        if x_tensor.dim() == 1:
+            x_tensor = x_tensor.unsqueeze(0)
+            added_batch_dim = True
+        if act_tensor.dim() == 1:
+            act_tensor = act_tensor.unsqueeze(0)
+
+        predicted_next_x = self(x_tensor, act_tensor)
+
+        if added_batch_dim:
+            predicted_next_x = predicted_next_x.squeeze(0)
+
+        return predicted_next_x

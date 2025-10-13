@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Dict, List, Mapping, Optional, Tuple
 
+import numpy as np
+
 
 def _clamp(value: float, lower: float = 0.0, upper: float = 1.0) -> float:
     """Clamp ``value`` between ``lower`` and ``upper`` (inclusive)."""
@@ -49,7 +51,11 @@ class EmotionState:
     def effective_happiness(self) -> float:
         """Return the happiness signal after modulation if available."""
 
-        return self.modulated_happiness if self.modulated_happiness is not None else self.happiness
+        return (
+            self.modulated_happiness
+            if self.modulated_happiness is not None
+            else self.happiness
+        )
 
     def effective_fear(self) -> float:
         """Return the fear signal after modulation if available."""
@@ -217,7 +223,7 @@ class ProcessingLayer:
         # Feedback A – anticipation: fear sharpens reward acquisition
         happiness += fear * self.anticipation_gain
         # Feedback B – reinforcement: successful avoidance reduces fear
-        fear *= (1.0 - self.reinforcement_gain)
+        fear *= 1.0 - self.reinforcement_gain
 
         # Feedback C – calibration: push toward stable ratio
         ratio = state.ratio()
@@ -249,7 +255,9 @@ class ContextWeights:
 class IntegrationLayer:
     """Contextualizes signals using environment, social, and internal weights."""
 
-    def integrate(self, state: EmotionState, context_weights: ContextWeights) -> EmotionState:
+    def integrate(
+        self, state: EmotionState, context_weights: ContextWeights
+    ) -> EmotionState:
         weights = context_weights.normalize()
         happiness = state.effective_happiness()
         fear = state.effective_fear()
@@ -279,7 +287,9 @@ class OutputLayer:
     def __post_init__(self) -> None:
         lo, hi = self.vital_range
         if not (0.0 <= self.apathy_threshold <= lo <= hi <= 1.0):
-            raise ValueError("Behavior thresholds must satisfy apathy <= vital_range <= 1.0")
+            raise ValueError(
+                "Behavior thresholds must satisfy apathy <= vital_range <= 1.0"
+            )
         if not (hi <= self.mania_threshold <= 1.0):
             raise ValueError("Mania threshold must be >= vital_range[1] and <= 1.0")
 
@@ -306,7 +316,9 @@ class MetaLayer:
     equilibrium_prior: float = 0.75
 
     def update(self, observed_ratio: float) -> float:
-        self.equilibrium_prior = (1 - self.smoothing) * self.equilibrium_prior + self.smoothing * observed_ratio
+        self.equilibrium_prior = (
+            1 - self.smoothing
+        ) * self.equilibrium_prior + self.smoothing * observed_ratio
         return self.equilibrium_prior
 
     def reset(self, *, equilibrium_prior: Optional[float] = None) -> None:
@@ -453,9 +465,131 @@ class EmotionalEquilibriumAgent:
         }
 
 
+class EEAMultiAgentPolicy:
+    """Heuristic multi-agent controller driven by the EEA scaffold."""
+
+    def __init__(
+        self, env, *, num_agents: int, config: Mapping[str, object] | None = None
+    ) -> None:
+        self.env = env
+        self.num_agents = num_agents
+        self.config = config if config is not None else {}
+
+        vision_space = env.single_observation_space.spaces["vision"]
+        self._vision_shape = vision_space.shape
+        self._vision_size = int(np.prod(self._vision_shape))
+        self._center = np.array(
+            [
+                self._vision_shape[0] // 2,
+                self._vision_shape[1] // 2,
+            ]
+        )
+
+        seed = self.config.get("seed") if isinstance(self.config, Mapping) else None
+        self._rng = np.random.default_rng(seed)
+        self._agents = [EmotionalEquilibriumAgent() for _ in range(num_agents)]
+
+    def reset(self) -> None:
+        for agent in self._agents:
+            agent.reset()
+
+    def get_action(
+        self, obs: np.ndarray, agent_id: int, deterministic: bool = False
+    ) -> np.ndarray:
+        obs = np.asarray(obs, dtype=np.float32)
+        vision, internal_state, neighbor_stats, time_scalar = self._split_obs(obs)
+
+        food_channel = vision[..., 0]
+        hazard_channel = vision[..., 1]
+        agent_channel = vision[..., 2]
+
+        happiness = _clamp(float(internal_state[0]))
+        hazard_signal = float(
+            np.clip(hazard_channel.mean() + 0.25 * agent_channel.mean(), 0.0, 1.0)
+        )
+        context = {
+            "neighbor_density": float(np.mean(neighbor_stats)),
+            "time": float(time_scalar),
+            "food_density": float(food_channel.mean()),
+        }
+
+        eea_result = self._agents[agent_id].evaluate(
+            happiness=happiness,
+            fear=hazard_signal,
+            context=context,
+        )
+        behavior = eea_result["behavior"]
+
+        move: np.ndarray = np.zeros(2, dtype=np.float32)
+        if behavior is BehaviorState.ANXIETY:
+            move = self._toward_high_value(food_channel)
+        elif behavior is BehaviorState.MANIA:
+            move = self._wander(deterministic)
+        else:  # Vital engagement and fallback
+            move = self._toward_high_value(food_channel)
+            if np.allclose(move, 0.0):
+                move = self._wander(deterministic, scale=0.5)
+
+        return move.astype(np.float32)
+
+    def update(self, data) -> None:  # pragma: no cover - heuristic policy is stateless
+        return None
+
+    def state_dict(
+        self,
+    ) -> Dict[str, object]:  # pragma: no cover - interface compatibility
+        return {}
+
+    def load_state_dict(
+        self, state: Mapping[str, object] | None
+    ) -> None:  # pragma: no cover
+        return None
+
+    def get_optimizer_state(self) -> Dict[str, object]:  # pragma: no cover
+        return {}
+
+    def load_optimizer_state(
+        self, state: Mapping[str, object] | None
+    ) -> None:  # pragma: no cover
+        return None
+
+    def _split_obs(
+        self, obs: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+        vision = obs[: self._vision_size].reshape(self._vision_shape)
+        idx = self._vision_size
+
+        internal_state = obs[idx : idx + 3]
+        idx += 3
+
+        neighbor_stats = obs[idx : idx + 3]
+        idx += 3
+
+        time_scalar = float(obs[idx]) if idx < len(obs) else 0.0
+        return vision, internal_state, neighbor_stats, time_scalar
+
+    def _toward_high_value(self, food_channel: np.ndarray) -> np.ndarray:
+        if food_channel.size == 0 or np.max(food_channel) <= 0.0:
+            return np.zeros(2, dtype=np.float32)
+
+        targets = np.argwhere(food_channel == np.max(food_channel))
+        if targets.size == 0:
+            return np.zeros(2, dtype=np.float32)
+
+        target = targets[0]
+        delta = target - self._center
+        return np.clip(delta, -1.0, 1.0).astype(np.float32)
+
+    def _wander(self, deterministic: bool, scale: float = 1.0) -> np.ndarray:
+        if deterministic:
+            return np.zeros(2, dtype=np.float32)
+        return self._rng.uniform(low=-scale, high=scale, size=2).astype(np.float32)
+
+
 __all__ = [
     "EmotionalEquilibriumAgent",
     "EmotionState",
     "ContextWeights",
     "BehaviorState",
+    "EEAMultiAgentPolicy",
 ]

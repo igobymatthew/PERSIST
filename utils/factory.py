@@ -9,6 +9,7 @@ from .validate_config import load_and_validate_config, validate_config
 from environments.grid_life import GridLifeEnv
 from environments.multi_agent_gridlife import MultiAgentGridLifeEnv
 from agents.persist_agent import PersistAgent
+from agents.eea_agent import EEAMultiAgentPolicy
 from agents.mpc_agent import MPCAgent
 from agents.shared_sac import SharedSAC
 from components.homeostat import Homeostat
@@ -485,6 +486,13 @@ class ComponentFactory:
                 role_embedding_dim=default_cfg['role_embedding_dim'],
                 config=self.config
             ).to(self.device)
+            policies['default'] = policy
+        elif default_cfg['policy'] == 'eea_agent':
+            policy = EEAMultiAgentPolicy(
+                env,
+                num_agents=self.config['multiagent']['num_agents'],
+                config=self.config
+            )
             policies['default'] = policy
         else:
             raise ValueError(f"Unsupported multi-agent policy type: {default_cfg['policy']}")

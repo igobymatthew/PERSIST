@@ -24,10 +24,10 @@ class MultiAgentGridLifeEnv(gym.Env):
 
         # Vision + internal state + neighbor features + time
         view_radius = self.config['multiagent']['observation']['view_radius']
-        obs_shape = (2 * view_radius + 1, 2 * view_radius + 1)
+        vision_shape = (2 * view_radius + 1, 2 * view_radius + 1, 3)
 
         self.single_observation_space = Dict({
-            "vision": Box(low=0, high=10, shape=obs_shape, dtype=np.float32),
+            "vision": Box(low=0, high=10, shape=vision_shape, dtype=np.float32),
             "x": Box(low=0, high=1, shape=(3,), dtype=np.float32), # energy, temp, integrity
             "neighbors": Box(low=0, high=self.num_agents, shape=(3,), dtype=np.float32), # count, competition, resource_density
             "time": Box(low=0, high=1, shape=(1,), dtype=np.float32)

@@ -1,7 +1,7 @@
 import pytest
 import random
 from evolution.ga_core import GA, Individual
-from evolution.operators import uniform_crossover, gaussian_mutation
+from evolution.operators import uniform_crossover
 from evolution.nsga2 import nsga2_select
 
 # Define a simple fitness function for testing: minimize the value of 'x'

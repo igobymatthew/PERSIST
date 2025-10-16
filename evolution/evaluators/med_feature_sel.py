@@ -39,7 +39,7 @@ def crossval_auc_and_fairness(X, y, sensitive_features, n_splits=5):
     for train_index, test_index in kf.split(X):
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
-        sensitive_train, sensitive_test = sensitive_features[train_index], sensitive_features[test_index]
+        _, sensitive_test = sensitive_features[train_index], sensitive_features[test_index]
 
         model = LogisticRegression(X_train.shape[1])
         optimizer = optim.Adam(model.parameters(), lr=0.01)

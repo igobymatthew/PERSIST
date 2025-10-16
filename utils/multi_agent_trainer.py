@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import torch
 
@@ -15,7 +17,9 @@ class MultiAgentTrainer:
         self.agent_ids = self.env.agents
         self.num_episodes = self.config.get('num_episodes', 1000)
         self.batch_size = self.config['training']['batch_size']
-        self.update_every = self.config['training']['update_every'] # In steps
+        self.update_every = self.config['training']['update_every']  # In steps
+
+        self.latest_resource_quotas: dict[str, float] | None = None
 
         # Assuming homogeneous agents for now, using one policy
         self.policy = self.policies['default']
@@ -37,8 +41,12 @@ class MultiAgentTrainer:
             while not done:
                 # --- 1. Get Proposals and Safety Projections ---
                 if self.resource_allocator and obs:
-                    current_internal_states = {aid: self.env.internal_states[aid] for aid in obs.keys()}
-                    quotas = self.resource_allocator.get_quotas(current_internal_states)
+                    current_internal_states = {
+                        aid: self.env.internal_states[aid] for aid in obs.keys()
+                    }
+                    self.latest_resource_quotas = self.resource_allocator.get_quotas(
+                        current_internal_states
+                    )
                     # TODO: Use quotas in reward or agent logic.
 
                 proposed_actions = {}
@@ -77,7 +85,8 @@ class MultiAgentTrainer:
 
                 total_steps += 1
                 ep_len += 1
-                if rewards: ep_rew += sum(rewards.values())
+                if rewards:
+                    ep_rew += sum(rewards.values())
 
                 if total_steps > self.batch_size and total_steps % self.update_every == 0:
                     self._update_models()

@@ -1,6 +1,3 @@
-from pathlib import Path
-import sys
-
 import pytest
 import torch
 from torch import nn
@@ -12,10 +9,6 @@ except ModuleNotFoundError:  # pragma: no cover
     PEFT_AVAILABLE = False
 else:  # pragma: no cover
     PEFT_AVAILABLE = True
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from tools.lora_inference import AdapterSpec, LoRAInferencePipeline
 

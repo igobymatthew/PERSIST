@@ -35,7 +35,7 @@ def main():
 
     except Exception as e:
         import sys
-        print(f"\n--- ❌ An error occurred during the isolated test ---", file=sys.stderr)
+        print("\n--- ❌ An error occurred during the isolated test ---", file=sys.stderr)
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 

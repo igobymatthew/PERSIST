@@ -1,5 +1,5 @@
 import numpy as np
-import pytest
+
 from evolution.evaluators.med_feature_sel import crossval_auc_and_fairness
 from evolution.evaluators.rl_metaeval import train_and_measure
 

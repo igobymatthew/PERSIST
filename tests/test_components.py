@@ -1,8 +1,11 @@
-import pytest
 import numpy as np
 import torch
-from components.homeostat import Homeostat
+
+from components.budget_meter import BudgetMeter
 from components.dynamics_adapter import DynamicsAdapter
+from components.homeostat import Homeostat
+from components.internal_model import InternalModel
+from components.viability_approximator import ViabilityApproximator
 
 def test_homeostat_reward_calculation():
     """
@@ -46,8 +49,6 @@ def test_homeostat_reward_calculation():
     ])
     assert np.allclose(reward_batch, expected_reward_batch), \
         f"Reward for batch of states was incorrect. Expected {expected_reward_batch}, got {reward_batch}"
-
-from components.viability_approximator import ViabilityApproximator
 
 def test_viability_approximator_training_and_prediction():
     """
@@ -99,8 +100,6 @@ def test_viability_approximator_training_and_prediction():
         # The probability for the non-viable state should be < 0.5
         assert viable_prob.item() > 0.5, f"Expected > 0.5 for viable state, but got {viable_prob.item()}"
         assert non_viable_prob.item() < 0.5, f"Expected < 0.5 for non-viable state, but got {non_viable_prob.item()}"
-
-from components.internal_model import InternalModel
 
 def test_internal_model_training_and_prediction():
     """
@@ -184,8 +183,6 @@ def test_dynamics_adapter_linearization_matches_trained_model():
     assert B.shape == expected_B_shape
     assert torch.isfinite(A).all()
     assert torch.isfinite(B).all()
-
-from components.budget_meter import BudgetMeter
 
 def test_budget_meter():
     """

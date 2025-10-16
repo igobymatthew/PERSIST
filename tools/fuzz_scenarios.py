@@ -1,7 +1,6 @@
 import yaml
 import numpy as np
 import os
-from datetime import datetime
 
 class ScenarioFuzzer:
     """
@@ -42,7 +41,7 @@ class ScenarioFuzzer:
 
         # Fuzz viability constraints
         if "viability" in self.fuzz_params:
-             for i, constraint in enumerate(fuzzed_config["viability"]["constraints"]):
+            for i, constraint in enumerate(fuzzed_config["viability"]["constraints"]):
                 # This is a simplified example; a real implementation would
                 # need to parse and intelligently modify the constraint strings.
                 pass
@@ -58,7 +57,7 @@ class ScenarioFuzzer:
     def _fuzz_single_item(self, item, bounds):
         min_val, max_val = bounds
         fuzzed_item = item + np.random.uniform(min_val, max_val)
-        return np.clip(fuzzed_item, 0, None) # Ensure values don't go below zero
+        return np.clip(fuzzed_item, 0, None)  # Ensure values don't go below zero
 
     def generate_fuzz_suite(self, num_scenarios, output_dir):
         """

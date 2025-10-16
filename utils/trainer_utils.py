@@ -1,6 +1,3 @@
-import torch
-import numpy as np
-
 class CurriculumScheduler:
     def __init__(self, config):
         self.config = config.get('curriculum', {})

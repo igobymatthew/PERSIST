@@ -1,10 +1,7 @@
-import sys
-
-print("--- Starting factory.py import ---", file=sys.stderr)
-import torch
-import yaml
 import re
+
 import numpy as np
+import torch
 from .validate_config import load_and_validate_config, validate_config
 
 from environments.grid_life import GridLifeEnv

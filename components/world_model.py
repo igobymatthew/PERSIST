@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
 
 class WorldModel(nn.Module):
     def __init__(self, obs_dim, act_dim, hidden_dim=256):

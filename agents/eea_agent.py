@@ -485,7 +485,12 @@ class EEAMultiAgentPolicy:
             ]
         )
 
-        seed = self.config.get("seed") if isinstance(self.config, Mapping) else None
+        seed_obj = self.config.get("seed") if isinstance(self.config, Mapping) else None
+        seed: int | np.integer | None
+        if isinstance(seed_obj, (int, np.integer)):
+            seed = int(seed_obj)
+        else:
+            seed = None
         self._rng = np.random.default_rng(seed)
         self._agents = [EmotionalEquilibriumAgent() for _ in range(num_agents)]
 

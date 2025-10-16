@@ -1,5 +1,5 @@
 # persist/evolution/ga_core.py
-from typing import Callable, Dict, Any, List, Tuple
+from typing import Any, Callable, Dict, List
 import random
 
 Individual = Dict[str, Any]  # {"genes": ..., "meta": ...}

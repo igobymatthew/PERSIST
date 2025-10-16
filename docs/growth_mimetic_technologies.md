@@ -39,4 +39,20 @@ PERSIST already treats survival as a synthesis of homeostasis, viability shieldi
 2. Extend telemetry to log life-stage transitions, affect ratios, and species richness for experiment reproducibility.
 3. Pair NSGA-II curriculum search with Transgenerational Memory Weave objectives to auto-design worlds that produce sustainable, diverse populations.
 
+## 7. Implementation Roadmap (v0.1)
+
+| Milestone | Scope | Primary Modules | Validation Signals |
+|-----------|-------|-----------------|--------------------|
+| **M0 – Schema & Telemetry Scaffolding** | Introduce life-stage fields to viability schemas and expose stage-aware metrics through the TelemetryManager. | `schemas/viability.py`, `components/telemetry/manager.py`, CLI config loaders. | ✅ Schema validation passes, ✅ CLI prints stage timeline preview, ✅ Telemetry logs include `life_stage` and `stage_age`.
+| **M1 – LifeStage Dynamics Graph** | Implement age-indexed constraint bands and optimizer resets tied to stage transitions. | `components/viability`, `components/shield`, optimizer orchestration utilities. | ✅ Deterministic stage transitions in unit tests, ✅ Shield re-parameterizes budgets per stage, ✅ Optimizer reset triggers recorded in telemetry.
+| **M2 – EEA++ Affect Loop** | Extend EEA buffers and replay hooks with stage-aware affect setpoints. | `agents/eea`, `buffers/emotion.py`. | ✅ Affect ratios respect stage-dependent bounds in simulations, ✅ Context bank replay shortens recovery after fire events.
+| **M3 – Biodiversity Fabric Simulator** | Add species archetypes and habitat succession knobs to curriculum generators. | `environments/eco`, `curriculum/generators`, `multiagent/coordination`. | ✅ Multi-species smoke test passes with no catastrophic collapse, ✅ Telemetry exposes species richness trend.
+| **M4 – Transgenerational Memory Weave** | Persist post-stage policies and inject them into new agents with Fisher-masked blending. | `multiagent/lineage`, `components/persistence`, `tools/checkpoints`. | ✅ Lineage benchmarks show faster recovery after fire events, ✅ Heritable priors reduce unsafe exploration in regression tests.
+
+## 8. Documentation & Collaboration Hooks
+
+- **Design logs:** Add a `docs/growth_mimetic_devlog/` directory to capture week-to-week decisions, data schema migrations, and telemetry screenshots once experiments begin.
+- **Issue templates:** Create GitHub issue templates for each milestone (Schema, LDG, EEA++, BFS, TMW) so contributors can self-assign subtasks and reference this pitch directly.
+- **Cross-references:** Update `docs/EEA.md`, `docs/use_case_walkthroughs.md`, and the README once individual milestones land so readers can trace how Growth-Mimetic functionality manifests in user-facing workflows.
+
 By layering growth-aware mechanics on top of PERSIST’s persistence stack, these technologies deliver agents that grow, feel, and co-evolve with the richness of living ecosystems.

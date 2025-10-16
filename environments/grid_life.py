@@ -154,8 +154,10 @@ class GridLifeEnv:
             threshold = c['val']
 
             is_violated = False
-            if op == '>=' and not val >= threshold: is_violated = True
-            elif op == '<=' and not val <= threshold: is_violated = True
+            if op == '>=' and not val >= threshold:
+                is_violated = True
+            elif op == '<=' and not val <= threshold:
+                is_violated = True
 
             if is_violated:
                 violations[i] = 1.0
@@ -180,6 +182,8 @@ class GridLifeEnv:
             op = c['op']
             threshold = c['val']
 
-            if op == '>=': margins[i] = val - threshold
-            elif op == '<=': margins[i] = threshold - val
+            if op == '>=':
+                margins[i] = val - threshold
+            elif op == '<=':
+                margins[i] = threshold - val
         return margins

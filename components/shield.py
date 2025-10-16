@@ -1,14 +1,28 @@
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
 import numpy as np
 import torch
-import logging
-from .safety_network import SafetyNetwork
+
+if TYPE_CHECKING:
+    from .safety_network import SafetyNetwork
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class Shield:
-    def __init__(self, internal_model, viability_approximator, action_space, conf=0.95, safety_network=None, mode='search'):
+    def __init__(
+        self,
+        internal_model,
+        viability_approximator,
+        action_space,
+        conf: float = 0.95,
+        safety_network: SafetyNetwork | None = None,
+        mode: str = 'search',
+    ):
         """
         Initializes the Shield.
 

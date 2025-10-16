@@ -1,39 +1,85 @@
 import time
 from prometheus_client import start_http_server, Gauge, Counter
 
+
 class TelemetryManager:
     """
     Manages and exposes operational metrics for Prometheus.
     """
+
     def __init__(self, config):
         """
         Initializes the TelemetryManager and defines Prometheus metrics.
         """
-        self.config = config.get('telemetry', {})
-        self.enabled = self.config.get('enabled', False)
+        self.config = config.get("telemetry", {})
+        self.enabled = self.config.get("enabled", False)
         if not self.enabled:
             return
 
-        self.port = self.config.get('port', 8000)
+        self.port = self.config.get("port", 8000)
         self._total_steps_in_episode = 0
         self._shield_triggers_in_episode = 0
         self._cbf_interventions_in_episode = 0
         self._ood_detections_in_episode = 0
-
+        self._active_stage_name = None
 
         # --- Define Prometheus Metrics ---
 
         # Gauges (value can go up or down)
-        self.survival_steps_gauge = Gauge('persist_survival_steps', 'Number of steps the agent survived in the last episode.')
-        self.episode_reward_gauge = Gauge('persist_episode_reward', 'Total reward achieved in the last episode.')
-        self.policy_entropy_gauge = Gauge('persist_policy_entropy', 'Entropy of the policy distribution.')
-        self.steps_per_second_gauge = Gauge('persist_steps_per_second', 'Training steps per second.')
-        self.near_boundary_density_gauge = Gauge('persist_near_boundary_density', 'Number of samples collected near the viability boundary in the last batch.')
-        self.shield_trigger_rate_gauge = Gauge('persist_shield_trigger_rate', 'Rate at which the safety shield was triggered in the last episode.')
+        self.survival_steps_gauge = Gauge(
+            "persist_survival_steps",
+            "Number of steps the agent survived in the last episode.",
+        )
+        self.episode_reward_gauge = Gauge(
+            "persist_episode_reward", "Total reward achieved in the last episode."
+        )
+        self.policy_entropy_gauge = Gauge(
+            "persist_policy_entropy", "Entropy of the policy distribution."
+        )
+        self.steps_per_second_gauge = Gauge(
+            "persist_steps_per_second", "Training steps per second."
+        )
+        self.near_boundary_density_gauge = Gauge(
+            "persist_near_boundary_density",
+            "Number of samples collected near the viability boundary in the last batch.",
+        )
+        self.shield_trigger_rate_gauge = Gauge(
+            "persist_shield_trigger_rate",
+            "Rate at which the safety shield was triggered in the last episode.",
+        )
+        self.life_stage_index_gauge = Gauge(
+            "persist_life_stage_index", "Index of the active life stage."
+        )
+        self.life_stage_progress_gauge = Gauge(
+            "persist_life_stage_progress",
+            "Progress through the active life stage (0-1).",
+        )
+        self.life_stage_age_gauge = Gauge(
+            "persist_life_stage_age", "Steps elapsed in the active life stage."
+        )
+        self.life_stage_active_gauge = Gauge(
+            "persist_life_stage_active",
+            "Indicator gauge for life stage activation.",
+            ["life_stage"],
+        )
+        self.life_stage_affect_bounds_gauge = Gauge(
+            "persist_life_stage_affect_bounds",
+            "Target affect bounds for the active life stage.",
+            ["affect", "bound"],
+        )
 
         # Counters (value only goes up)
-        self.episodes_total_counter = Counter('persist_episodes_total', 'Total number of episodes trained.')
-        self.constraint_violations_counter = Counter('persist_constraint_violations_total', 'Total number of constraint violations across all episodes.')
+        self.episodes_total_counter = Counter(
+            "persist_episodes_total", "Total number of episodes trained."
+        )
+        self.constraint_violations_counter = Counter(
+            "persist_constraint_violations_total",
+            "Total number of constraint violations across all episodes.",
+        )
+        self.life_stage_transition_counter = Counter(
+            "persist_life_stage_transitions_total",
+            "Total number of life stage transitions observed.",
+        )
 
         self.last_sps_update_time = time.time()
         self.last_sps_step_count = 0
@@ -60,13 +106,12 @@ class TelemetryManager:
             return
 
         self._total_steps_in_episode += 1
-        if info.get('shield_triggered', False):
+        if info.get("shield_triggered", False):
             self._shield_triggers_in_episode += 1
-        if info.get('cbf_intervened', False):
+        if info.get("cbf_intervened", False):
             self._cbf_interventions_in_episode += 1
-        if info.get('ood_detected', False):
+        if info.get("ood_detected", False):
             self._ood_detections_in_episode += 1
-
 
     def update_on_episode_end(self, episode_reward, episode_violations):
         """
@@ -81,7 +126,9 @@ class TelemetryManager:
         self.constraint_violations_counter.inc(episode_violations)
 
         if self._total_steps_in_episode > 0:
-            shield_rate = self._shield_triggers_in_episode / self._total_steps_in_episode
+            shield_rate = (
+                self._shield_triggers_in_episode / self._total_steps_in_episode
+            )
             self.shield_trigger_rate_gauge.set(shield_rate)
 
         # Reset per-episode counters
@@ -100,7 +147,6 @@ class TelemetryManager:
         self.policy_entropy_gauge.set(policy_entropy)
         self.near_boundary_density_gauge.set(near_boundary_samples_count)
 
-
     def update_sps(self, total_env_steps):
         """
         Updates the steps-per-second metric periodically.
@@ -112,8 +158,54 @@ class TelemetryManager:
         delta_time = current_time - self.last_sps_update_time
         delta_steps = total_env_steps - self.last_sps_step_count
 
-        if delta_time > 2: # Update every 2 seconds to smooth the value
+        if delta_time > 2:  # Update every 2 seconds to smooth the value
             sps = delta_steps / delta_time
             self.steps_per_second_gauge.set(sps)
             self.last_sps_update_time = current_time
             self.last_sps_step_count = total_env_steps
+
+    def update_life_stage(self, metrics):
+        if not self.enabled or metrics is None:
+            return
+
+        if hasattr(metrics, "as_dict"):
+            payload = metrics.as_dict()
+        elif isinstance(metrics, dict):
+            payload = metrics
+        else:
+            return
+
+        index = payload.get("index")
+        if index is not None:
+            self.life_stage_index_gauge.set(float(index))
+
+        stage_age = payload.get("stage_age")
+        if stage_age is not None:
+            self.life_stage_age_gauge.set(float(stage_age))
+
+        progress = payload.get("progress")
+        if progress is not None:
+            self.life_stage_progress_gauge.set(float(progress))
+
+        stage_name = payload.get("name")
+        if stage_name:
+            if self._active_stage_name and self._active_stage_name != stage_name:
+                self.life_stage_active_gauge.labels(
+                    life_stage=self._active_stage_name
+                ).set(0.0)
+                self.life_stage_transition_counter.inc()
+            self.life_stage_active_gauge.labels(life_stage=stage_name).set(1.0)
+            self._active_stage_name = stage_name
+
+        affect_targets = payload.get("affect_targets", {}) or {}
+        for affect_name, bounds in affect_targets.items():
+            try:
+                low, high = bounds
+            except (TypeError, ValueError):
+                continue
+            self.life_stage_affect_bounds_gauge.labels(
+                affect=affect_name, bound="low"
+            ).set(float(low))
+            self.life_stage_affect_bounds_gauge.labels(
+                affect=affect_name, bound="high"
+            ).set(float(high))

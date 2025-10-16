@@ -78,12 +78,16 @@ def compute_and_save_viable_set(
     unsafe_mask = np.zeros(grid_shape, dtype=bool)
     for c in constraints:
         dim, c_type, val = c['dim'], c['type'], c['val']
-        if dim == 0: # Energy
-            if c_type == 'min': unsafe_mask[energy_levels < val, :] = True
-            if c_type == 'max': unsafe_mask[energy_levels > val, :] = True
-        elif dim == 1: # Temperature
-            if c_type == 'min': unsafe_mask[:, temp_levels < val] = True
-            if c_type == 'max': unsafe_mask[:, temp_levels > val] = True
+        if dim == 0:  # Energy
+            if c_type == 'min':
+                unsafe_mask[energy_levels < val, :] = True
+            if c_type == 'max':
+                unsafe_mask[energy_levels > val, :] = True
+        elif dim == 1:  # Temperature
+            if c_type == 'min':
+                unsafe_mask[:, temp_levels < val] = True
+            if c_type == 'max':
+                unsafe_mask[:, temp_levels > val] = True
 
     # This is V_0, the set of states to avoid at all costs.
     V = unsafe_mask.copy()
@@ -118,10 +122,10 @@ def compute_and_save_viable_set(
                 # then this current state is not "all actions lead to unsafe".
                 if not V_prev[next_idx_i, next_idx_j]:
                     all_actions_lead_to_unsafe = False
-                    break # Found a safe action, no need to check others
+                    break  # Found a safe action, no need to check others
 
             if all_actions_lead_to_unsafe:
-                V[i, j] = True # Mark current state as unsafe
+                V[i, j] = True  # Mark current state as unsafe
 
         print(f"  Step {t+1}/{horizon}: Found {V.sum()} unsafe states.")
 
@@ -141,7 +145,7 @@ def compute_and_save_viable_set(
         grid_resolution=grid_resolution
     )
 
-    print(f"\nViable set computation complete.")
+    print("\nViable set computation complete.")
     print(f"  - Grid resolution: {grid_resolution}x{grid_resolution}")
     print(f"  - Total states: {grid_resolution**2}")
     print(f"  - Viable states: {viable_mask.sum()} ({viable_mask.sum() / (grid_resolution**2) * 100:.2f}%)")

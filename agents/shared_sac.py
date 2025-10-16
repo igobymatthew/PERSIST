@@ -140,8 +140,10 @@ class SharedSAC(nn.Module):
         self.critic_optimizer.step()
 
         # --- Actor and Alpha Update ---
-        for p in self.critic1.parameters(): p.requires_grad = False
-        for p in self.critic2.parameters(): p.requires_grad = False
+        for p in self.critic1.parameters():
+            p.requires_grad = False
+        for p in self.critic2.parameters():
+            p.requires_grad = False
 
         pi, logp_pi = self.actor(obs, embeddings)
         q1_pi = self.critic1(obs, pi, embeddings)
@@ -160,8 +162,10 @@ class SharedSAC(nn.Module):
         alpha_loss.backward()
         self.alpha_optimizer.step()
 
-        for p in self.critic1.parameters(): p.requires_grad = True
-        for p in self.critic2.parameters(): p.requires_grad = True
+        for p in self.critic1.parameters():
+            p.requires_grad = True
+        for p in self.critic2.parameters():
+            p.requires_grad = True
 
         # --- Target Network Update ---
         with torch.no_grad():

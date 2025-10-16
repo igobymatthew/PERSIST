@@ -22,7 +22,6 @@ def qp_solver(Q, p, G, h, solver_args=None):
         solver_args = {}
 
     batch_size, n, _ = Q.shape
-    m = G.shape[1]
 
     solutions = []
     for i in range(batch_size):

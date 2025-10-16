@@ -10,6 +10,7 @@ producing screenshots of the guided CLI experience.
 from __future__ import annotations
 
 from contextlib import contextmanager
+import importlib
 import pathlib
 import sys
 from types import SimpleNamespace
@@ -21,7 +22,7 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import main as persist_main
+persist_main = importlib.import_module("main")
 
 
 class ResponseQueue:

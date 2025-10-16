@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import cvxpy as cp
-import numpy as np
 
 class CBFLayer(nn.Module):
     """
@@ -99,7 +98,7 @@ class CBFLayer(nn.Module):
         A, B = linearized_dynamics
         a_safe_list = []
 
-        if x.dim() == 1: # Handle non-batched input
+        if x.dim() == 1:  # Handle non-batched input
             x = x.unsqueeze(0)
             a_des = a_des.unsqueeze(0)
             A = A.unsqueeze(0)

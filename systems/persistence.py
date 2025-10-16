@@ -1,6 +1,5 @@
 import os
 import torch
-import hashlib
 import zlib
 import json
 import logging

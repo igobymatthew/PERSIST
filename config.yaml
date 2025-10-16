@@ -37,6 +37,36 @@ viability:
     capacity: 4096
     margin_low: 0.35
     margin_high: 0.65
+  life_stages:
+    - name: "infant"
+      duration: 128
+      constraint_overrides:
+        energy_min: 0.15
+        temp_range_min: 0.20
+        temp_range_max: 0.65
+      affect_targets:
+        happiness: [0.55, 0.85]
+        fear: [0.05, 0.30]
+    - name: "juvenile"
+      duration: 256
+      constraint_overrides:
+        energy_min: 0.22
+        temp_range_min: 0.25
+        temp_range_max: 0.68
+        integrity_min: 0.65
+      affect_targets:
+        happiness: [0.50, 0.80]
+        fear: [0.10, 0.35]
+    - name: "adult"
+      duration: 512
+      constraint_overrides:
+        energy_min: 0.30
+        temp_range_min: 0.32
+        temp_range_max: 0.70
+        integrity_min: 0.72
+      affect_targets:
+        happiness: [0.45, 0.75]
+        fear: [0.15, 0.45]
 rewards:
   lambda_homeo: 0.7
   lambda_intr:  0.3

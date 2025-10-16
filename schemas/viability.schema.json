@@ -58,6 +58,14 @@
       },
       "required": ["enabled"],
       "additionalProperties": false
+    },
+    "life_stages": {
+      "description": "Ordered timeline of life stages with constraint overrides.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/life_stage"
+      },
+      "minItems": 1
     }
   },
   "required": ["constraints", "shield"],
@@ -106,6 +114,41 @@
         }
       },
       "required": ["name", "variable", "operator", "threshold", "description"]
+    },
+    "life_stage": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human readable stage label (e.g., 'infant')."
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of environment steps the stage lasts."
+        },
+        "constraint_overrides": {
+          "type": "object",
+          "description": "Constraint names mapped to stage-specific thresholds.",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "affect_targets": {
+          "type": "object",
+          "description": "Stage-specific affect ratio bounds keyed by affect name.",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "required": ["name", "duration"],
+      "additionalProperties": false
     }
   }
 }

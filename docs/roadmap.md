@@ -127,8 +127,10 @@ updated roadmap on 09.28.2025
 
 5. Roadmap milestones
 	•	Short-term: polish multi-agent CTDE implementation (resource allocator, shield coordination).
-	•	Medium-term: unify telemetry + reporting into dashboards (Prometheus → Grafana).
-	•	Long-term: add polished docs site (mkdocs or sphinx) with theory, API, and tutorials.
+	•	Short-term (parallel): kick off Growth-Mimetic Technology v0.1 by landing schema + telemetry scaffolding (see `docs/growth_mimetic_technologies.md`).
+	•	Medium-term: unify telemetry + reporting into dashboards (Prometheus → Grafana) and surface life-stage/affect trends.
+	•	Medium-term (growth focus): deliver LifeStage Dynamics Graph + EEA++ milestones before expanding to biodiversity simulation.
+	•	Long-term: add polished docs site (mkdocs or sphinx) with theory, API, and tutorials that narrate Growth-Mimetic progress.
 
 ⸻
 

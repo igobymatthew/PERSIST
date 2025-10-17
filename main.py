@@ -20,12 +20,14 @@ from utils.multi_agent_trainer import MultiAgentTrainer
 from evolution.ga_core import GA, Individual
 from evolution.operators import uniform_crossover, gaussian_mutation
 from evolution.nsga2 import nsga2_select
+from components.life_stage import LifeStageManager
 
 
 def get_base_config():
     """Loads the default config.yaml to be used as a template."""
-    with open("config.yaml", 'r') as f:
+    with open("config.yaml", "r") as f:
         return yaml.safe_load(f)
+
 
 Number = TypeVar("Number", int, float)
 
@@ -109,7 +111,9 @@ def _prompt_numeric(
     label = message.split("(")[0].strip()
 
     if answer is None or answer.strip() == "":
-        console.print(f":white_check_mark: Using default {label} → {default}", style="green")
+        console.print(
+            f":white_check_mark: Using default {label} → {default}", style="green"
+        )
         return default
 
     value = caster(answer)
@@ -117,7 +121,9 @@ def _prompt_numeric(
     return value
 
 
-def _render_summary_card(title: str, payload: dict, *, subtitle: Optional[str] = None) -> None:
+def _render_summary_card(
+    title: str, payload: dict, *, subtitle: Optional[str] = None
+) -> None:
     """Display a bordered summary card for the provided section details."""
 
     body = Text()
@@ -136,6 +142,51 @@ def _render_summary_card(title: str, payload: dict, *, subtitle: Optional[str] =
             subtitle=subtitle,
             border_style="magenta",
             box=box.DOUBLE,
+        )
+    )
+
+
+def _render_life_stage_timeline(config: dict) -> None:
+    viability_cfg = config.get("viability", {})
+    manager = LifeStageManager.from_config(viability_cfg)
+    if not manager:
+        return
+
+    timeline = manager.timeline()
+    if not timeline:
+        return
+
+    body = Text()
+    for entry in timeline:
+        stage_header = f"[{entry['index']}] {entry['name']} → steps {entry['start_step']}–{entry['end_step']}"
+        body.append(stage_header + "\n", style="bold white")
+
+        constraint_overrides = entry.get("constraint_overrides", {}) or {}
+        if constraint_overrides:
+            formatted_constraints = ", ".join(
+                (
+                    f"{key}={value:.3f}"
+                    if isinstance(value, (float, int))
+                    else f"{key}={value}"
+                )
+                for key, value in sorted(constraint_overrides.items())
+            )
+            body.append(f"    constraints: {formatted_constraints}\n", style="grey70")
+
+        affect_targets = entry.get("affect_targets", {}) or {}
+        if affect_targets:
+            formatted_affect = ", ".join(
+                f"{name}=[{bounds[0]:.2f}, {bounds[1]:.2f}]"
+                for name, bounds in sorted(affect_targets.items())
+            )
+            body.append(f"    affect targets: {formatted_affect}\n", style="grey70")
+
+    console.print(
+        Panel(
+            body,
+            title="Life Stage Timeline Preview",
+            border_style="cyan",
+            box=box.ROUNDED,
         )
     )
 
@@ -159,7 +210,9 @@ def _render_top_level_summary(config: dict) -> None:
     )
 
 
-def _maybe_customize_training(config: dict, progress: Optional[StepProgressTracker] = None) -> None:
+def _maybe_customize_training(
+    config: dict, progress: Optional[StepProgressTracker] = None
+) -> None:
     """Offer the user a chance to fine-tune common training hyperparameters."""
 
     training_cfg = config.get("training")
@@ -186,7 +239,10 @@ def _maybe_customize_training(config: dict, progress: Optional[StepProgressTrack
         "Number of training epochs", training_cfg["epochs"], int, min_value=1
     )
     training_cfg["max_steps"] = _prompt_numeric(
-        "Maximum environment interaction steps", training_cfg["max_steps"], int, min_value=1
+        "Maximum environment interaction steps",
+        training_cfg["max_steps"],
+        int,
+        min_value=1,
     )
     training_cfg["update_every"] = _prompt_numeric(
         "Gradient updates every N environment steps",
@@ -253,7 +309,11 @@ def _maybe_customize_training(config: dict, progress: Optional[StepProgressTrack
         "actor_lr": training_cfg["actor_lr"],
         "critic_lr": training_cfg["critic_lr"],
     }
-    _render_summary_card("Training Summary", summary_payload, subtitle="Review these values before continuing")
+    _render_summary_card(
+        "Training Summary",
+        summary_payload,
+        subtitle="Review these values before continuing",
+    )
 
 
 def _maybe_customize_model_capacity(
@@ -397,6 +457,7 @@ def _run_common_walkthroughs(config: dict) -> dict:
     _maybe_customize_training(config, progress)
     _maybe_customize_model_capacity(config, progress)
     _maybe_customize_curriculum(config, progress)
+    _render_life_stage_timeline(config)
 
     if steps:
         console.print(
@@ -415,42 +476,45 @@ def generate_standard_config():
     config = get_base_config()
 
     # Disable most advanced features for a clean run
-    config['multiagent']['enabled'] = False
-    config['adversarial']['enabled'] = False
-    config['risk_sensitive']['enabled'] = False
-    config['meta_learning']['enabled'] = False
-    config['mpc']['enabled'] = False
-    config['safety']['cbf']['enabled'] = False
-    config['safety']['chance_constraint']['enabled'] = False
-    config['ood']['enabled'] = False
-    config['continual']['enabled'] = False
-    config['budgets']['enabled'] = False
-    config['population']['ensemble_shield']['enabled'] = False
-    config['maintenance']['enabled'] = True # Keep this for core behavior
-    config['safety_probe']['enabled'] = True
-    config['rewards']['intrinsic'] = 'surprise' # A simple but effective default
+    config["multiagent"]["enabled"] = False
+    config["adversarial"]["enabled"] = False
+    config["risk_sensitive"]["enabled"] = False
+    config["meta_learning"]["enabled"] = False
+    config["mpc"]["enabled"] = False
+    config["safety"]["cbf"]["enabled"] = False
+    config["safety"]["chance_constraint"]["enabled"] = False
+    config["ood"]["enabled"] = False
+    config["continual"]["enabled"] = False
+    config["budgets"]["enabled"] = False
+    config["population"]["ensemble_shield"]["enabled"] = False
+    config["maintenance"]["enabled"] = True  # Keep this for core behavior
+    config["safety_probe"]["enabled"] = True
+    config["rewards"]["intrinsic"] = "surprise"  # A simple but effective default
 
     return _run_common_walkthroughs(config)
+
 
 def generate_multi_agent_config():
     """Generates a configuration for multi-agent training."""
     print("--- Generating multi-agent configuration ---")
     config = get_base_config()
-    config['multiagent']['enabled'] = True
+    config["multiagent"]["enabled"] = True
     return _run_common_walkthroughs(config)
+
 
 def generate_robust_config():
     """Generates a configuration for a robust agent with advanced safety."""
     print("--- Generating robust agent configuration ---")
     config = get_base_config()
 
-    config['multiagent']['enabled'] = False
-    config['adversarial']['enabled'] = True
-    config['safety']['cbf']['enabled'] = True
-    config['ood']['enabled'] = True
-    config['continual']['enabled'] = True
+    config["multiagent"]["enabled"] = False
+    config["adversarial"]["enabled"] = True
+    config["safety"]["cbf"]["enabled"] = True
+    config["ood"]["enabled"] = True
+    config["continual"]["enabled"] = True
 
     return _run_common_walkthroughs(config)
+
 
 def generate_ga_config():
     """Generates a configuration for a GA-based experiment."""
@@ -458,26 +522,26 @@ def generate_ga_config():
     config = get_base_config()
 
     # Disable other modes
-    config['multiagent']['enabled'] = False
-    config['adversarial']['enabled'] = False
-    config['risk_sensitive']['enabled'] = False
+    config["multiagent"]["enabled"] = False
+    config["adversarial"]["enabled"] = False
+    config["risk_sensitive"]["enabled"] = False
 
     # Enable and configure evolution
-    config['evolution'] = {
-        'enabled': True,
-        'algorithm': 'nsga2',
-        'pop_size': 50,
-        'generations': 10,
-        'elitism': 2,
-        'mutation_rate': 0.1,
-        'viability': 'constraints.viability_policy',
-        'evaluator': 'evaluators.rl_metaeval.eval_rl_individual',
-        'search_space': 'search_spaces.ppo_small_net_v1',
-        'fire': {
-            'trigger': 'plateau:3',
-            'intensity': 1.6,
-            'ewc_mask': True,
-        }
+    config["evolution"] = {
+        "enabled": True,
+        "algorithm": "nsga2",
+        "pop_size": 50,
+        "generations": 10,
+        "elitism": 2,
+        "mutation_rate": 0.1,
+        "viability": "constraints.viability_policy",
+        "evaluator": "evaluators.rl_metaeval.eval_rl_individual",
+        "search_space": "search_spaces.ppo_small_net_v1",
+        "fire": {
+            "trigger": "plateau:3",
+            "intensity": 1.6,
+            "ewc_mask": True,
+        },
     }
     console.print(
         Panel(
@@ -488,36 +552,47 @@ def generate_ga_config():
     )
     return config
 
+
 def generate_custom_config():
     """Guides the user through a series of questions to build a custom config."""
     print("--- Generating custom configuration ---")
     config = get_base_config()
 
     # --- Top-level choices ---
-    is_multiagent = questionary.confirm("Run a multi-agent experiment?", default=False).ask()
-    config['multiagent']['enabled'] = is_multiagent
+    is_multiagent = questionary.confirm(
+        "Run a multi-agent experiment?", default=False
+    ).ask()
+    config["multiagent"]["enabled"] = is_multiagent
 
     if not is_multiagent:
         # --- Single-agent specific questions ---
         intrinsic_method = questionary.select(
             "Choose the intrinsic reward method:",
             choices=["surprise", "rnd", "empowerment"],
-            default="surprise"
+            default="surprise",
         ).ask()
-        config['rewards']['intrinsic'] = intrinsic_method
+        config["rewards"]["intrinsic"] = intrinsic_method
 
-        use_curriculum = questionary.confirm("Use curriculum learning?", default=True).ask()
-        config['curriculum']['enabled'] = use_curriculum
+        use_curriculum = questionary.confirm(
+            "Use curriculum learning?", default=True
+        ).ask()
+        config["curriculum"]["enabled"] = use_curriculum
 
-        use_adversarial = questionary.confirm("Enable adversarial training for robustness?", default=False).ask()
-        config['adversarial']['enabled'] = use_adversarial
+        use_adversarial = questionary.confirm(
+            "Enable adversarial training for robustness?", default=False
+        ).ask()
+        config["adversarial"]["enabled"] = use_adversarial
 
-        use_cbf = questionary.confirm("Use Control Barrier Functions (CBF) for safety?", default=False).ask()
-        config['safety']['cbf']['enabled'] = use_cbf
+        use_cbf = questionary.confirm(
+            "Use Control Barrier Functions (CBF) for safety?", default=False
+        ).ask()
+        config["safety"]["cbf"]["enabled"] = use_cbf
 
     # --- Common questions ---
-    use_telemetry = questionary.confirm("Enable Prometheus telemetry?", default=True).ask()
-    config['telemetry']['enabled'] = use_telemetry
+    use_telemetry = questionary.confirm(
+        "Enable Prometheus telemetry?", default=True
+    ).ask()
+    config["telemetry"]["enabled"] = use_telemetry
 
     print("\nCustom configuration generated based on your selections.")
     return _run_common_walkthroughs(config)
@@ -525,17 +600,17 @@ def generate_custom_config():
 
 def run_ga_experiment(config):
     """Runs a GA-based experiment using the 'evolution' config."""
-    evo_config = config['evolution']
+    evo_config = config["evolution"]
 
     # 1. Dynamically load the evaluator function
-    eval_path = evo_config['evaluator']
-    eval_module_name, eval_func_name = eval_path.rsplit('.', 1)
+    eval_path = evo_config["evaluator"]
+    eval_module_name, eval_func_name = eval_path.rsplit(".", 1)
     eval_module = importlib.import_module(f"evolution.{eval_module_name}")
     fitness_fn = getattr(eval_module, eval_func_name)
 
     # 2. Dynamically load the search space
-    space_path = evo_config['search_space']
-    space_module_name, space_func_name = space_path.rsplit('.', 1)
+    space_path = evo_config["search_space"]
+    space_module_name, space_func_name = space_path.rsplit(".", 1)
     space_module = importlib.import_module(f"evolution.{space_module_name}")
     search_space_fn = getattr(space_module, space_func_name)
     search_space = search_space_fn()
@@ -544,17 +619,19 @@ def run_ga_experiment(config):
     def init_fn() -> Individual:
         genes = {}
         for param, spec in search_space.items():
-            if spec[0] == 'choice':
+            if spec[0] == "choice":
                 genes[param] = random.choice(spec[1])
-            elif spec[0] == 'uniform':
+            elif spec[0] == "uniform":
                 genes[param] = random.uniform(spec[1], spec[2])
-            elif spec[0] == 'log_uniform':
-                genes[param] = 10**random.uniform(math.log10(spec[1]), math.log10(spec[2]))
+            elif spec[0] == "log_uniform":
+                genes[param] = 10 ** random.uniform(
+                    math.log10(spec[1]), math.log10(spec[2])
+                )
         return {"genes": genes}
 
     # 4. Dynamically load the viability function
-    viability_path = evo_config['viability']
-    module_name, func_name = viability_path.rsplit('.', 1)
+    viability_path = evo_config["viability"]
+    module_name, func_name = viability_path.rsplit(".", 1)
     viability_module = importlib.import_module(f"evolution.{module_name}")
     viability_fn = getattr(viability_module, func_name)
 
@@ -566,11 +643,11 @@ def run_ga_experiment(config):
         crossover_fn=uniform_crossover,
         mutate_fn=gaussian_mutation,
         viability_fn=viability_fn,
-        pop_size=evo_config['pop_size'],
-        elitism=evo_config['elitism'],
-        mutation_rate=evo_config['mutation_rate'],
-        max_generations=evo_config['generations'],
-        seed=config.get('seed')
+        pop_size=evo_config["pop_size"],
+        elitism=evo_config["elitism"],
+        mutation_rate=evo_config["mutation_rate"],
+        max_generations=evo_config["generations"],
+        seed=config.get("seed"),
     )
 
     # 6. Run the GA
@@ -581,21 +658,25 @@ def run_ga_experiment(config):
     # 7. Print results
     if final_fits:
         key = list(final_fits[0].keys())[0]
-        ranked_pop = [p for _, p in sorted(zip(final_fits, final_pop), key=lambda x: x[0][key])]
+        ranked_pop = [
+            p for _, p in sorted(zip(final_fits, final_pop), key=lambda x: x[0][key])
+        ]
         best_ind = ranked_pop[0]
 
         summary_payload = {
             "best_fitness": sorted(final_fits, key=lambda x: x[key])[0],
-            "best_genes": yaml.dump(best_ind['genes'], indent=2),
+            "best_genes": yaml.dump(best_ind["genes"], indent=2),
         }
-        _render_summary_card("GA Run Summary", summary_payload, subtitle="Best individual found")
+        _render_summary_card(
+            "GA Run Summary", summary_payload, subtitle="Best individual found"
+        )
 
 
 def run_experiment(config):
     """
     Initializes components and runs the experiment based on the given config.
     """
-    if config.get('evolution', {}).get('enabled', False):
+    if config.get("evolution", {}).get("enabled", False):
         run_ga_experiment(config)
         return
 
@@ -603,22 +684,22 @@ def run_experiment(config):
     factory = ComponentFactory(config=config)
 
     # 2. Set up persistence
-    log_dir = config.get('logging', {}).get('log_dir', 'logs')
-    checkpoint_dir = os.path.join(log_dir, 'checkpoints')
+    log_dir = config.get("logging", {}).get("log_dir", "logs")
+    checkpoint_dir = os.path.join(log_dir, "checkpoints")
     persistence_manager = PersistenceManager(checkpoint_dir)
 
     # 3. Create all components
     components = factory.get_all_components()
-    components['config'] = config
+    components["config"] = config
 
     # 4. Initialize the appropriate trainer
-    if config.get('multiagent', {}).get('enabled', False):
+    if config.get("multiagent", {}).get("enabled", False):
         trainer = MultiAgentTrainer(components)
-    elif config.get('adversarial', {}).get('enabled', False):
+    elif config.get("adversarial", {}).get("enabled", False):
         trainer = RobustTrainer(components)
     else:
         trainer = Trainer(components)
-    components['trainer'] = trainer
+    components["trainer"] = trainer
 
     # 5. Initialize the coordinator
     coordinator = ExperimentCoordinator(components, persistence_manager)
@@ -633,6 +714,7 @@ def run_experiment(config):
         print(f"\n--- An error occurred during training: {e} ---")
         raise
 
+
 def main():
     """
     Main entry point with an interactive CLI.
@@ -640,7 +722,9 @@ def main():
     print("Welcome to the PERSIST Framework!")
 
     if not os.path.exists("config.yaml"):
-        print("Error: `config.yaml` not found. Please ensure it exists in the root directory.")
+        print(
+            "Error: `config.yaml` not found. Please ensure it exists in the root directory."
+        )
         return
 
     choice = questionary.select(
@@ -652,8 +736,9 @@ def main():
             "Run a GA-based experiment (meta-optimization)",
             "Run a custom experiment (you will be asked a few questions)",
             "Run directly from `config.yaml` (original behavior)",
-            "Exit"
-        ]).ask()
+            "Exit",
+        ],
+    ).ask()
 
     config = None
     if choice is None or choice == "Exit":
@@ -674,7 +759,7 @@ def main():
         print("--- Running directly from `config.yaml` ---")
         # Load the config directly to avoid instantiating the factory twice.
         # The factory will be created once inside run_experiment.
-        with open("config.yaml", 'r') as f:
+        with open("config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
     if config:
@@ -688,6 +773,7 @@ def main():
             run_experiment(config)
         else:
             print("Operation cancelled by user.")
+
 
 if __name__ == "__main__":
     main()

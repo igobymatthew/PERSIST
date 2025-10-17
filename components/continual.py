@@ -51,7 +51,7 @@ class ContinualLearningManager:
         self._compute_fisher(rehearsal_buffer)
 
         self.task_count += 1
-        print(f"--- Consolidation complete. Fisher matrix updated. ---")
+        print("--- Consolidation complete. Fisher matrix updated. ---")
 
     def _compute_fisher(self, rehearsal_buffer):
         """

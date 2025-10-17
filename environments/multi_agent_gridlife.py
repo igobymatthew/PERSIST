@@ -1,6 +1,6 @@
 import numpy as np
 import gymnasium as gym
-from gymnasium.spaces import Dict, Box, Discrete
+from gymnasium.spaces import Dict, Box
 
 class MultiAgentGridLifeEnv(gym.Env):
     """
@@ -28,9 +28,14 @@ class MultiAgentGridLifeEnv(gym.Env):
 
         self.single_observation_space = Dict({
             "vision": Box(low=0, high=10, shape=vision_shape, dtype=np.float32),
-            "x": Box(low=0, high=1, shape=(3,), dtype=np.float32), # energy, temp, integrity
-            "neighbors": Box(low=0, high=self.num_agents, shape=(3,), dtype=np.float32), # count, competition, resource_density
-            "time": Box(low=0, high=1, shape=(1,), dtype=np.float32)
+            "x": Box(low=0, high=1, shape=(3,), dtype=np.float32),  # energy, temp, integrity
+            "neighbors": Box(
+                low=0,
+                high=self.num_agents,
+                shape=(3,),
+                dtype=np.float32,
+            ),  # count, competition, resource_density
+            "time": Box(low=0, high=1, shape=(1,), dtype=np.float32),
         })
 
         # The full observation and action spaces are dictionaries keyed by agent ID
@@ -87,7 +92,7 @@ class MultiAgentGridLifeEnv(gym.Env):
             pos = self.agent_positions[agent_id]
             if self.food_map[pos[0], pos[1]] > 0:
                 self.internal_states[agent_id][0] = min(1.0, self.internal_states[agent_id][0] + 0.5)
-                self.food_map[pos[0], pos[1]] = 0 # Consume food
+                self.food_map[pos[0], pos[1]] = 0  # Consume food
                 rewards[agent_id] += 1.0
 
             # Check for termination
@@ -187,7 +192,7 @@ class MultiAgentGridLifeEnv(gym.Env):
 
             for agent_id, pos in self.agent_positions.items():
                 if self._is_alive(agent_id):
-                    grid[pos[0], pos[1]] = str(agent_id[-1]) # Display agent number
+                    grid[pos[0], pos[1]] = str(agent_id[-1])  # Display agent number
 
             print("\n" + "\n".join(" ".join(row) for row in grid))
         else:

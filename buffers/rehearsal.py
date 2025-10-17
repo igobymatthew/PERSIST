@@ -1,6 +1,4 @@
-import torch
 import random
-import numpy as np
 
 class RehearsalBuffer:
     """
@@ -10,7 +8,7 @@ class RehearsalBuffer:
     """
     def __init__(self, capacity, device):
         self.capacity = capacity
-        self.device = device # device is not used here but good to keep for consistency
+        self.device = device  # device is not used here but good to keep for consistency
         self.buffer = []
         self.n_seen = 0
 

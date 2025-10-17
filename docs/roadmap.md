@@ -1,5 +1,40 @@
 ---
 
+## 🚀 Active Initiative: Growth-Mimetic Technology v0.1
+
+We are sequencing work so contributors can land the Growth-Mimetic stack in reliable layers instead of chasing every idea at once.
+
+- **North star:** Deliver a stage-aware persistence baseline where agents mature through LifeStage Dynamics Graph + EEA++ while telemetry, schema, and tooling make the progression observable.
+- **Delivery cadence:** Ship milestones M0 → M2 during the current build cycle, with M3–M4 incubating in parallel design spikes.
+- **Execution rhythm:** Each milestone has an owner, integration checkpoint, and doc touchpoint so updates flow back into the pitch and supporting guides.
+
+### Recently completed (M0 close-out)
+
+| Deliverable | Notes | Observability |
+|-------------|-------|---------------|
+| Life-stage schema bands + validation helpers | Config loader now fails-fast on invalid `life_stage` definitions and publishes normalized previews. | `pytest tests/test_life_stage_manager.py` + config preview CLI |
+| Telemetry emission for stage transitions | Telemetry manager publishes `life_stage`, `stage_age`, and shield delta gauges for dashboards. | Prometheus gauge smoke log + docs update |
+| CLI growth preview workflow | `python main.py --preview-growth config.yaml` renders the stage itinerary and override summaries. | CLI walkthrough demo + README quickstart |
+
+### Current sprint backlog (M1 focus)
+
+| Task | Owner | Dependencies | Exit Criteria |
+|------|-------|--------------|---------------|
+| Land LifeStage Dynamics Graph with deterministic transitions and override hooks. | Systems lead | LifeStageManager core + schema validation | Integration test passes for stage jumps; coordinator swap logs include transition reason codes. |
+| Refresh shield parameterization on stage change events. | Safety lead | Systems transitions above | Shield telemetry shows per-stage gains; regression suite stays green. |
+| Add optimizer reset plumbing for stage advancement. | Training lead | Systems transitions above | Multi-agent trainer resets target nets without destabilizing baselines; training notebook updated. |
+| Publish LDG walkthrough draft to docs. | Docs liaison | Systems transitions + telemetry notes | New section in `docs/growth_mimetic_technologies.md` explaining LDG surfaces and debugging tips. |
+
+### Milestone runbook
+
+| Milestone | Scope Highlights | Integration Check | Docs / Comms |
+|-----------|------------------|-------------------|--------------|
+| **M0 – Schema & Telemetry Scaffolding** *(Status: ✅ complete — stage preview CLI and telemetry gauges live)* | Stage-aware schema bands, telemetry surfaces, CLI preview. | Schema validation CI, telemetry smoke logs attached to PR. | Update pitch + roadmap, add quickstart to `docs/growth_mimetic_technologies.md`. |
+| **M1 – LifeStage Dynamics Graph** *(In flight)* | Deterministic stage transitions, optimizer reset hooks, shield parameter refresh. | Regression suite covering stage jumps and shield re-parameterization. | Add LDG walkthrough to `docs/use_case_walkthroughs.md`. |
+| **M2 – EEA++ Affect Loop** | Stage-sensitive affect buffers, replay banks, recovery metrics. | Affect ratio simulations with expected bounds + faster recovery metrics recorded. | Extend `docs/EEA.md` with stage tables and emotional telemetry examples. |
+| **M3 – Biodiversity Fabric Simulator** | Species archetypes, habitat succession knobs, telemetry for richness. | Multi-species scenario smoke test in CI; dashboards capture richness trends. | Publish BFS devlog entry + configuration recipes. |
+| **M4 – Transgenerational Memory Weave** | Policy archival, Fisher-masked blending for new agents. | Lineage benchmarks showing improved recovery + reduced unsafe exploration. | Draft lineage operations guide in `docs/growth_mimetic_devlog/`. |
+
 ## ✅ What’s going well
 
 * The directory structure is mature. You have `agents`, `components`, `environments`, `multiagent`, `opp`, `schemas`, `tools`, `tests`, etc. That modularization aligns with the architecture you’ve been describing.
@@ -126,9 +161,11 @@ updated roadmap on 09.28.2025
 ⸻
 
 5. Roadmap milestones
-	•	Short-term: polish multi-agent CTDE implementation (resource allocator, shield coordination).
-	•	Medium-term: unify telemetry + reporting into dashboards (Prometheus → Grafana).
-	•	Long-term: add polished docs site (mkdocs or sphinx) with theory, API, and tutorials.
+        •       Short-term (Sprint N): Complete M0 runbook items (schema + telemetry scaffolding) and freeze CLI preview UX.
+        •       Short-term (Sprint N+1): Land M1 LDG changes alongside multi-agent CTDE polishing so stage transitions are smoke-tested with coordination code.
+        •       Medium-term (Sprints N+2 → N+3): Deliver M2 affect loop enhancements and thread resulting metrics into Prometheus → Grafana dashboards.
+        •       Medium-term (growth focus): Prototype M3 biodiversity scenarios while drafting BFS configuration recipes in the new devlog.
+        •       Long-term: Operationalize M4 lineage memory weave and graduate docs to an mkdocs or sphinx site that narrates Growth-Mimetic progress end-to-end.
 
 ⸻
 

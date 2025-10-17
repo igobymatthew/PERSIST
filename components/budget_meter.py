@@ -1,5 +1,3 @@
-import torch
-
 class BudgetMeter:
     """
     Tracks a budget for a resource (e.g., computation, energy) and provides penalties.

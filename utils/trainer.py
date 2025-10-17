@@ -2,7 +2,6 @@ import torch
 import numpy as np
 
 from agents.mpc_agent import MPCAgent
-from utils.trainer_utils import CurriculumScheduler
 
 class Trainer:
     """

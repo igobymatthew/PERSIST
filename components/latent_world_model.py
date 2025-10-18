@@ -102,12 +102,16 @@ class LatentWorldModel(nn.Module):
         internal_model,
         viability_approximator,
     ):
-        obs_tensor = torch.as_tensor(initial_obs, dtype=torch.float32)
+        device = next(self.parameters()).device
+
+        obs_tensor = torch.as_tensor(initial_obs, dtype=torch.float32, device=device)
         if obs_tensor.dim() == 1:
             obs_tensor = obs_tensor.unsqueeze(0)
         latent = self.encoder(obs_tensor)
 
-        action_seq_tensor = torch.as_tensor(action_sequences, dtype=torch.float32)
+        action_seq_tensor = torch.as_tensor(
+            action_sequences, dtype=torch.float32, device=device
+        )
         if action_seq_tensor.dim() == 2:
             action_seq_tensor = action_seq_tensor.unsqueeze(0)
         num_candidates, horizon, _ = action_seq_tensor.shape
@@ -124,7 +128,9 @@ class LatentWorldModel(nn.Module):
 
         predicted_obs_tensor = torch.stack(predicted_obs, dim=1)
 
-        internal_state = torch.as_tensor(initial_internal_state, dtype=torch.float32)
+        internal_state = torch.as_tensor(
+            initial_internal_state, dtype=torch.float32, device=device
+        )
         if internal_state.dim() == 1:
             internal_state = internal_state.unsqueeze(0)
         if internal_state.size(0) == 1 and num_candidates > 1:

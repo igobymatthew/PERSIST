@@ -12,6 +12,7 @@ PERSIST already treats survival as a synthesis of homeostasis, viability shieldi
   - Extend the viability schema with age-indexed constraint bands and connect them to the existing shield projection flow.
   - Use the NearBoundaryBuffer to emphasize experiences near developmental tipping points.
   - Schedule optimizer resets (fire events) at stage changes to emulate growth spurts, combining Lookahead+RAdam with LoRA adapters for fast recalibration.
+  - **Status:** Schema wiring, stage telemetry, and fire-event resets are implemented (`schemas/viability.schema.json`, `components/life_stage.py`, `main.py`, `systems/coordinator.py`). Shield parameter tuning remains open alongside the Dreamer rollout (see `docs/issues/001-dreamer-world-model-upgrade.md`).
 
 ## 3. Emotional Equilibrium Atlas++ (EEA++)
 **Goal:** Transform the Emotional Equilibrium Architecture into a longitudinal affective growth model.
@@ -19,6 +20,7 @@ PERSIST already treats survival as a synthesis of homeostasis, viability shieldi
 - **Affective scaffolding:** Track happiness and fear ratios per stage, enforcing healthy ranges that drift toward adult equilibria. Entropy buffers expand in adolescence to encourage exploration, then narrow in adulthood to stabilize.
 - **Contextual memories:** Introduce a context-weighted experience bank that distills salient emotional episodes. During fire events, replay the bank to rebuild balanced affective policies faster.
 - **Telemetric storytelling:** Expose stage-aware affect metrics through the TelemetryManager so downstream dashboards narrate emotional maturation over time.
+  - **Status:** Pending integration. Follow `docs/issues/002-eea-plus-plus-stage-aware-affect.md` for progress.
 
 ## 4. Biodiversity Fabric Simulator (BFS)
 **Goal:** Achieve one-to-one ecological plausibility by letting agents co-evolve in ecosystems shaped by diversity rules.
@@ -26,6 +28,7 @@ PERSIST already treats survival as a synthesis of homeostasis, viability shieldi
 - **Species archetypes:** Instantiate multi-agent roles with differentiated metabolism, risk budgets, and maintenance tasks. Shared shields coordinate to avoid cross-species catastrophes while respecting resource competition.
 - **Habitat succession:** Genetic algorithms evolve environment parameters—seasonal hazards, resource regeneration rates, adversary sophistication—to mirror ecological succession. Viability kernels penalize imbalances that collapse biodiversity.
 - **Population persistence:** EnsembleShield policies supervise population-level survival; telemetry records species richness, trophic stability, and mutualistic behaviors as first-class metrics.
+  - **Status:** Pending. Captured in `docs/issues/003-biodiversity-fabric-simulator.md`.
 
 ## 5. Transgenerational Memory Weave (TMW)
 **Goal:** Preserve and adapt knowledge across lifespans, imitating cultural transmission.
@@ -33,6 +36,7 @@ PERSIST already treats survival as a synthesis of homeostasis, viability shieldi
 - **Evolutionary replay:** After each life stage or death event, archive distilled policies and viability approximators. Genetic operators mutate these archives while respecting Fisher-informed masks so important memories persist.
 - **Heritable schemas:** When a new agent spawns, initialize it with stage-specific priors drawn from ancestors, blending imitation learning with shield amortization to reduce unsafe exploration.
 - **Long-horizon evaluation:** Use benchmark suites to score lineage resilience, focusing on recovery rate after fire events and biodiversity impacts of inherited behaviors.
+  - **Status:** Pending. Captured in `docs/issues/004-transgenerational-memory-weave.md`.
 
 ## 6. Next Steps
 1. Prototype age-indexed viability schemas and integrate them into the CLI so users can configure developmental arcs without manual YAML edits.
@@ -43,11 +47,11 @@ PERSIST already treats survival as a synthesis of homeostasis, viability shieldi
 
 | Milestone | Scope | Primary Modules | Validation Signals |
 |-----------|-------|-----------------|--------------------|
-| **M0 – Schema & Telemetry Scaffolding** | Introduce life-stage fields to viability schemas and expose stage-aware metrics through the TelemetryManager. | `schemas/viability.py`, `components/telemetry/manager.py`, CLI config loaders. | ✅ Schema validation passes, ✅ CLI prints stage timeline preview, ✅ Telemetry logs include `life_stage` and `stage_age`.
+| **M0 – Schema & Telemetry Scaffolding** | Introduce life-stage fields to viability schemas and expose stage-aware metrics through the TelemetryManager. | `schemas/viability.py`, `components/telemetry/manager.py`, CLI config loaders. | ✅ Schema validation passes, ✅ CLI prints stage timeline preview, ✅ Telemetry logs include `life_stage` and `stage_age`. *(Status: ✅ Completed in current repo.)*
 | **M1 – LifeStage Dynamics Graph** | Implement age-indexed constraint bands and optimizer resets tied to stage transitions. | `components/viability`, `components/shield`, optimizer orchestration utilities. | ✅ Deterministic stage transitions in unit tests, ✅ Shield re-parameterizes budgets per stage, ✅ Optimizer reset triggers recorded in telemetry.
-| **M2 – EEA++ Affect Loop** | Extend EEA buffers and replay hooks with stage-aware affect setpoints. | `agents/eea`, `buffers/emotion.py`. | ✅ Affect ratios respect stage-dependent bounds in simulations, ✅ Context bank replay shortens recovery after fire events.
-| **M3 – Biodiversity Fabric Simulator** | Add species archetypes and habitat succession knobs to curriculum generators. | `environments/eco`, `curriculum/generators`, `multiagent/coordination`. | ✅ Multi-species smoke test passes with no catastrophic collapse, ✅ Telemetry exposes species richness trend.
-| **M4 – Transgenerational Memory Weave** | Persist post-stage policies and inject them into new agents with Fisher-masked blending. | `multiagent/lineage`, `components/persistence`, `tools/checkpoints`. | ✅ Lineage benchmarks show faster recovery after fire events, ✅ Heritable priors reduce unsafe exploration in regression tests.
+| **M2 – EEA++ Affect Loop** | Extend EEA buffers and replay hooks with stage-aware affect setpoints. | `agents/eea`, `buffers/emotion.py`. | ✅ Affect ratios respect stage-dependent bounds in simulations, ✅ Context bank replay shortens recovery after fire events. *(Status: 🚧 Not started – see `docs/issues/002-eea-plus-plus-stage-aware-affect.md`.)*
+| **M3 – Biodiversity Fabric Simulator** | Add species archetypes and habitat succession knobs to curriculum generators. | `environments/eco`, `curriculum/generators`, `multiagent/coordination`. | ✅ Multi-species smoke test passes with no catastrophic collapse, ✅ Telemetry exposes species richness trend. *(Status: 🚧 Not started – see `docs/issues/003-biodiversity-fabric-simulator.md`.)*
+| **M4 – Transgenerational Memory Weave** | Persist post-stage policies and inject them into new agents with Fisher-masked blending. | `multiagent/lineage`, `components/persistence`, `tools/checkpoints`. | ✅ Lineage benchmarks show faster recovery after fire events, ✅ Heritable priors reduce unsafe exploration in regression tests. *(Status: 🚧 Not started – see `docs/issues/004-transgenerational-memory-weave.md`.)*
 
 ## 8. Documentation & Collaboration Hooks
 

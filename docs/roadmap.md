@@ -12,9 +12,9 @@ We are sequencing work so contributors can land the Growth-Mimetic stack in reli
 
 | Task | Owner | Dependencies | Exit Criteria |
 |------|-------|--------------|---------------|
-| Expand viability schema with `life_stage` descriptors and validation helpers. | Schema lead | Existing `schemas/viability.py` infrastructure | CLI loads configs with stage previews; schema unit tests cover invalid bands. |
-| TelemetryManager emits `life_stage`, `stage_age`, and shield adjustment events. | Telemetry lead | Schema extension above | Local smoke test shows timeline log in `persist.log`; docs updated with field descriptions. |
-| CLI `--preview-growth` command surfaces stage sequence using new schema. | Tooling lead | Schema + Telemetry instrumentation | Running `python main.py --preview-growth config.yaml` prints stage table; README cross-link added. |
+| Expand viability schema with `life_stage` descriptors and validation helpers. | Schema lead | Existing `schemas/viability.py` infrastructure | CLI loads configs with stage previews; schema unit tests cover invalid bands. *(Status: ✅ Completed – see `schemas/viability.schema.json` and `tests/test_life_stage_manager.py`.)* |
+| TelemetryManager emits `life_stage`, `stage_age`, and shield adjustment events. | Telemetry lead | Schema extension above | Local smoke test shows timeline log in `persist.log`; docs updated with field descriptions. *(Status: ✅ Completed – implemented in `ops/telemetry.py::update_life_stage`.)* |
+| CLI `--preview-growth` command surfaces stage sequence using new schema. | Tooling lead | Schema + Telemetry instrumentation | Running `python main.py --preview-growth config.yaml` prints stage table; README cross-link added. *(Status: ✅ Completed – lifecycle preview renders via `main.py::_render_life_stage_timeline`.)* |
 
 ### Milestone runbook
 

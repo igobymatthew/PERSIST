@@ -17,6 +17,7 @@ from buffers.near_boundary import NearBoundaryBuffer, NearBoundaryConfig
 from multiagent.resource_allocator import ResourceAllocator
 from multiagent.cbf_coupler import CBFCoupler
 from components.latent_world_model import LatentWorldModel
+from components.dreamer_world_model import DreamerWorldModel
 from components.internal_model import InternalModel
 from components.viability_approximator import ViabilityApproximator
 from components.rnd import RND
@@ -99,11 +100,26 @@ class ComponentFactory:
         return homeostat
 
     def create_world_model(self, env):
-        print("Initializing latent world model...")
-        world_model = LatentWorldModel(
-            obs_dim=env.observation_space_dim, act_dim=env.action_dim
-        ).to(self.device)
-        print("✅ Latent world model initialized.")
+        world_model_config = self.config.get("world_model", {})
+        world_model_type = world_model_config.get("type", "latent").lower()
+
+        if world_model_type == "dreamer":
+            print("Initializing Dreamer world model...")
+            dreamer_config = self.config.get("dreamer", {})
+            world_model = DreamerWorldModel(
+                obs_dim=env.observation_space_dim,
+                action_dim=env.action_dim,
+                config=dreamer_config,
+                device=self.device,
+            )
+            print("✅ Dreamer world model initialized.")
+        else:
+            print("Initializing latent world model...")
+            world_model = LatentWorldModel(
+                obs_dim=env.observation_space_dim, act_dim=env.action_dim
+            ).to(self.device)
+            print("✅ Latent world model initialized.")
+
         return world_model
 
     def create_internal_model(self, env):
@@ -179,6 +195,7 @@ class ComponentFactory:
         viability_approximator,
         safety_network,
         viability_ensemble=None,
+        world_model=None,
     ):
         population_config = self.config.get("population", {})
         ensemble_config = population_config.get("ensemble_shield", {})
@@ -201,6 +218,8 @@ class ComponentFactory:
                 conf=self.config["viability"]["shield"]["conf"],
                 safety_network=safety_network,
                 mode="search",
+                world_model=world_model,
+                rollout_horizon=self.config["viability"]["shield"].get("horizon", 1),
             )
             print("✅ Safety shield initialized.")
         return shield
@@ -612,6 +631,7 @@ class ComponentFactory:
                 viability_approximator,
                 safety_network,
                 viability_ensemble,
+                world_model,
             )
             safe_fallback_policy = self.create_safe_fallback_policy(env)
             cbf_layer = self.create_cbf_layer(env)

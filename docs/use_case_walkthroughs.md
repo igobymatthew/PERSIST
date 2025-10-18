@@ -110,6 +110,40 @@ These walkthroughs provide concrete, end-to-end exercises that demonstrate how t
      ```
    - Contrast key metrics in `training.log` against your baseline run (e.g., shield trigger rate, recovery penalties) to understand the impact of adversarial perturbations.
 
+## Walkthrough 4: Enable the Dreamer Latent World Model
+
+**Goal:** Upgrade the surprise-based intrinsic reward and shielding pipeline to use the DreamerV3-style recurrent world model.
+
+1. **Clone and edit the configuration**
+   ```bash
+   cp config.yaml config.dreamer.yaml
+   ```
+   Update the following keys in `config.dreamer.yaml`:
+   - `world_model.type: "dreamer"`
+   - `rewards.intrinsic: "surprise"` (Dreamer currently targets the surprise pathway.)
+   - Optionally tune `dreamer.stoch_dim`, `dreamer.deter_dim`, or the optimizer learning rates to match your hardware budget.
+
+2. **Launch training with the Dreamer model**
+   ```bash
+   python main.py
+   ```
+   Choose **“Run from config.yaml”** and supply `config.dreamer.yaml` when prompted. The console banner now prints `✅ Dreamer world model initialized.` during component construction.
+
+3. **Inspect imagination-driven shielding**
+   - The shield logs now describe when Dreamer rollouts are used (look for `Shield initialized` followed by `Using search-based projection` messages that reference the configured horizon).
+   - MPC planning (`ReachAvoidMPC`) automatically reuses the Dreamer rollout API, so candidate action sequences are scored with the richer dynamics model.
+
+4. **Validate the Dreamer components**
+   Run the focused tests to ensure the RSSM backbone and rollout helpers behave as expected:
+   ```bash
+   python -m pytest tests/test_dreamer_world_model.py -q
+   ```
+   The suite verifies RSSM shape contracts, KL stabilisation, and the imagination API with dummy data.
+
+5. **Analyse surprise rewards**
+   - Monitor `training.log` for `intrinsic_surprise` fields—values should drop as the world model learns.
+   - Optional: compare with a latent-only run by toggling `world_model.type` back to `"latent"` while keeping the rest of the configuration identical.
+
 ---
 
 These walkthroughs provide concrete paths from `python main.py` to actionable artifacts—checkpoints, telemetry, and reports—so beginners can build intuition for how PERSIST enforces persistence across increasingly demanding scenarios.

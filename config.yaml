@@ -71,6 +71,26 @@ rewards:
   lambda_homeo: 0.7
   lambda_intr:  0.3
   intrinsic: "empowerment"  # or "surprise" or "rnd"
+
+world_model:
+  type: "latent"  # or "dreamer"
+
+dreamer:
+  embed_dim: 128
+  deter_dim: 200
+  stoch_dim: 32
+  rssm_hidden: 200
+  model_hidden: 256
+  kl_scale: 1.0
+  free_nats: 1.0
+  discount: 0.99
+  grad_clip: 100.0
+  reward_scale: 1.0
+  value_scale: 0.5
+  shield_horizon: 8
+  model_lr: 0.0003
+  reward_lr: 0.0003
+  value_lr: 0.0003
 training:
   # --- Single-agent settings ---
   epochs: 200

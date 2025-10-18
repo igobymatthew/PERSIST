@@ -3,6 +3,9 @@
 ## Summary
 The modernization plan in `docs/theory.md` recommends upgrading the existing latent world model to a DreamerV3-style architecture so surprise rewards and shield rollouts leverage a richer learned dynamics model. Although we currently train a lightweight latent model (`components/latent_world_model.py`), it lacks recurrent state-space modeling, imagination rollouts, and value heads that Dreamer provides. This issue tracks the work required to land that upgrade.
 
+## Status
+✅ Completed in `components/dreamer_world_model.py` with configuration wiring (`world_model.type: "dreamer"`) and Dreamer-specific tests (`tests/test_dreamer_world_model.py`). Trainers, the safety shield, and the MPC planner now fall back gracefully when the Dreamer model is disabled.
+
 ## Implementation Plan
 1. **Design the RSSM backbone**
    - Implement a recurrent state-space model (RSSM) module with stochastic and deterministic latent states (see DreamerV3).

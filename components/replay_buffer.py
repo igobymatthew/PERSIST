@@ -1,8 +1,11 @@
 import numpy as np
 import torch
 
+
 class ReplayBuffer:
-    def __init__(self, capacity, obs_dim, action_dim, internal_dim, num_constraints, device):
+    def __init__(
+        self, capacity, obs_dim, action_dim, internal_dim, num_constraints, device
+    ):
         self.capacity = capacity
         self.device = device
 
@@ -16,15 +19,33 @@ class ReplayBuffer:
 
         # Buffers for persistence components
         self.internal_state_buf = np.zeros((capacity, internal_dim), dtype=np.float32)
-        self.next_internal_state_buf = np.zeros((capacity, internal_dim), dtype=np.float32)
+        self.next_internal_state_buf = np.zeros(
+            (capacity, internal_dim), dtype=np.float32
+        )
         self.viability_label_buf = np.zeros(capacity, dtype=np.float32)
         self.violations_buf = np.zeros((capacity, num_constraints), dtype=np.float32)
-        self.constraint_margins_buf = np.zeros((capacity, num_constraints), dtype=np.float32)
-
+        self.constraint_margins_buf = np.zeros(
+            (capacity, num_constraints), dtype=np.float32
+        )
+        self.life_stage_index_buf = np.full(capacity, -1.0, dtype=np.float32)
 
         self.ptr, self.size = 0, 0
 
-    def store(self, obs, action, unsafe_action, reward, next_obs, done, internal_state, next_internal_state, viability_label, violations, constraint_margins):
+    def store(
+        self,
+        obs,
+        action,
+        unsafe_action,
+        reward,
+        next_obs,
+        done,
+        internal_state,
+        next_internal_state,
+        viability_label,
+        violations,
+        constraint_margins,
+        life_stage_index=-1.0,
+    ):
         self.obs_buf[self.ptr] = obs
         self.next_obs_buf[self.ptr] = next_obs
         self.action_buf[self.ptr] = action
@@ -36,6 +57,7 @@ class ReplayBuffer:
         self.viability_label_buf[self.ptr] = viability_label
         self.violations_buf[self.ptr] = violations
         self.constraint_margins_buf[self.ptr] = constraint_margins
+        self.life_stage_index_buf[self.ptr] = life_stage_index
 
         self.ptr = (self.ptr + 1) % self.capacity
         self.size = min(self.size + 1, self.capacity)
@@ -68,7 +90,9 @@ class ReplayBuffer:
         all_buffers = self._get_all_buffers()
         batch = {}
         for k, v in all_buffers.items():
-            batch[f"{k}_seq"] = torch.as_tensor(v[phys_indices], dtype=torch.float32, device=self.device)
+            batch[f"{k}_seq"] = torch.as_tensor(
+                v[phys_indices], dtype=torch.float32, device=self.device
+            )
 
         return batch
 
@@ -85,7 +109,8 @@ class ReplayBuffer:
             next_internal_state=self.next_internal_state_buf,
             viability_label=self.viability_label_buf,
             violations=self.violations_buf,
-            constraint_margins=self.constraint_margins_buf
+            constraint_margins=self.constraint_margins_buf,
+            life_stage_index=self.life_stage_index_buf,
         )
 
     def __len__(self):

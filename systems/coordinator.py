@@ -246,6 +246,12 @@ class ExperimentCoordinator:
                 constraint_margins = info.get(
                     "constraint_margins", np.zeros(self.env.num_constraints)
                 )
+                life_stage_index = -1.0
+                if getattr(self, "life_stage_manager", None):
+                    metrics = self.life_stage_manager.metrics(ep_len)
+                    if metrics is not None:
+                        life_stage_index = float(metrics.index)
+
                 self.replay_buffer.store(
                     external_obs,
                     safe_action,
@@ -258,6 +264,7 @@ class ExperimentCoordinator:
                     viability_label,
                     violations,
                     constraint_margins,
+                    life_stage_index,
                 )
 
                 if self.near_boundary_buffer:

@@ -9,9 +9,22 @@ logic later on.
 
 from __future__ import annotations
 
+import logging
+from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Dict, List, Mapping, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Deque,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Protocol,
+    Sequence,
+    Tuple,
+)
 
 import numpy as np
 
@@ -32,6 +45,28 @@ def _safe_div(num: float, den: float, default: float = 0.0) -> float:
     """Guard against division by zero when computing derived features."""
 
     return num / den if den != 0 else default
+
+
+def _regularize_toward_bounds(
+    value: float, bounds: Tuple[float, float], gain: float = 0.25
+) -> float:
+    """Move ``value`` toward ``bounds`` without overshooting."""
+
+    lower, upper = bounds
+    if value < lower:
+        return value + gain * (lower - value)
+    if value > upper:
+        return value - gain * (value - upper)
+    midpoint = (lower + upper) * 0.5
+    return value + gain * 0.1 * (midpoint - value)
+
+
+def _entropy_tolerance_from_ratio(bounds: Tuple[float, float]) -> float:
+    """Derive an entropy tolerance from the width of the ratio band."""
+
+    lower, upper = bounds
+    width = max(1e-3, upper - lower)
+    return float(np.clip(0.5 * width + 0.05, 0.05, 0.35))
 
 
 @dataclass
@@ -171,6 +206,17 @@ class EntropyBuffer:
 
         self.history.clear()
 
+    def set_tolerance(self, tolerance: float) -> None:
+        """Update the entropy tolerance used when comparing consecutive states."""
+
+        self.tolerance = max(0.0, float(tolerance))
+
+    def seed(self, states: Sequence[EmotionState]) -> None:
+        """Seed the history with pre-existing experiences."""
+
+        truncated = list(states)[-self.max_history :]
+        self.history = [EmotionState(s.happiness, s.fear) for s in truncated]
+
 
 @dataclass
 class ModulationLayer:
@@ -186,6 +232,12 @@ class ModulationLayer:
         lo, hi = self.target_range
         if not (0.0 <= lo <= hi <= 1.0):
             raise ValueError("target_range must lie within [0, 1] and be ordered")
+
+    def set_target_range(self, target_range: Tuple[float, float]) -> None:
+        lo, hi = target_range
+        if not (0.0 <= lo <= hi <= 1.0):
+            raise ValueError("target_range must lie within [0, 1] and be ordered")
+        self.target_range = (lo, hi)
 
     def modulate(self, state: EmotionState) -> EmotionState:
         state = self.valence_regulator.regulate(state)
@@ -375,7 +427,12 @@ class GovernanceLayer:
 class EmotionalEquilibriumAgent:
     """Agent scaffold implementing the Emotional Equilibrium Architecture."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        stage_provider: Optional[StageProvider] = None,
+        telemetry_hook: Optional[Callable[[Mapping[str, object]], None]] = None,
+    ) -> None:
         self.core = CorePrincipleLayer()
         self.modulation = ModulationLayer()
         self.processing = ProcessingLayer()
@@ -383,6 +440,172 @@ class EmotionalEquilibriumAgent:
         self.output = OutputLayer()
         self.meta = MetaLayer()
         self.governance = GovernanceLayer()
+        self._stage_provider: Optional[StageProvider] = stage_provider
+        self._telemetry_hook = telemetry_hook
+        self._logger = logging.getLogger(self.__class__.__name__)
+        self._stage_memory: Dict[str, Deque[EmotionState]] = {}
+        self._stage_memory_capacity = 64
+        self._active_stage: Optional[StageContext] = None
+
+    def configure_stage_awareness(
+        self,
+        *,
+        stage_provider: Optional[StageProvider] = None,
+        telemetry_hook: Optional[Callable[[Mapping[str, object]], None]] = None,
+    ) -> None:
+        """Attach runtime providers for life-stage awareness and telemetry."""
+
+        if stage_provider is not None:
+            self._stage_provider = stage_provider
+        if telemetry_hook is not None:
+            self._telemetry_hook = telemetry_hook
+
+    def _resolve_stage_context(self) -> Optional[StageContext]:
+        if self._stage_provider is None:
+            return None
+
+        raw_context = self._stage_provider()
+        if raw_context is None:
+            return None
+
+        if hasattr(raw_context, "as_dict") and callable(raw_context.as_dict):
+            payload: Mapping[str, Any] = raw_context.as_dict()
+        elif isinstance(raw_context, Mapping):
+            payload = raw_context
+        else:
+            payload = {
+                "index": getattr(raw_context, "index", None),
+                "name": getattr(raw_context, "name", None),
+                "affect_targets": getattr(raw_context, "affect_targets", {}),
+            }
+
+        raw_targets = payload.get("affect_targets") or {}
+        targets: Dict[str, Tuple[float, float]] = {}
+        if isinstance(raw_targets, Mapping):
+            for key, bounds in raw_targets.items():
+                try:
+                    lower, upper = bounds  # type: ignore[misc]
+                except (TypeError, ValueError):
+                    continue
+                try:
+                    targets[str(key)] = (float(lower), float(upper))
+                except (TypeError, ValueError):
+                    continue
+
+        raw_name = payload.get("name")
+        name = str(raw_name) if raw_name is not None else "stage"
+        raw_index = payload.get("index")
+        try:
+            index = int(raw_index) if raw_index is not None else -1
+        except (TypeError, ValueError):
+            index = -1
+
+        return StageContext(name=name, index=index, affect_targets=targets)
+
+    def _handle_stage_transition(self, context: StageContext) -> None:
+        ratio_bounds = context.affect_targets.get("ratio")
+        if ratio_bounds:
+            try:
+                self.modulation.set_target_range(ratio_bounds)
+            except ValueError:
+                self._logger.debug(
+                    "Ignoring invalid ratio bounds %s for stage %s",
+                    ratio_bounds,
+                    context.name,
+                )
+            self.modulation.entropy_buffer.set_tolerance(
+                _entropy_tolerance_from_ratio(ratio_bounds)
+            )
+
+        if context.name not in self._stage_memory:
+            self._stage_memory[context.name] = deque(maxlen=self._stage_memory_capacity)
+
+        experiences = list(self._stage_memory[context.name])
+        if ratio_bounds and experiences:
+            midpoint = sum(ratio_bounds) * 0.5
+            experiences.sort(key=lambda s: abs(s.ratio() - midpoint))
+            seed_states = experiences[: self.modulation.entropy_buffer.max_history]
+            self.modulation.entropy_buffer.seed(seed_states)
+            self.meta.reset(equilibrium_prior=midpoint)
+        else:
+            if ratio_bounds:
+                self.meta.reset(equilibrium_prior=sum(ratio_bounds) * 0.5)
+            else:
+                self.meta.reset()
+            self.modulation.entropy_buffer.reset()
+
+        self._active_stage = context
+
+    def _enforce_ratio_bounds(
+        self, state: EmotionState, ratio_bounds: Tuple[float, float]
+    ) -> EmotionState:
+        ratio = state.ratio()
+        lower, upper = ratio_bounds
+        if lower <= ratio <= upper:
+            return state
+
+        total = state.effective_happiness() + state.effective_fear()
+        if total <= 0:
+            return state
+
+        target_ratio = lower if ratio < lower else upper
+        desired_h = _clamp(target_ratio * total)
+        desired_f = _clamp(max(0.0, total - desired_h))
+        state.modulated_happiness = desired_h
+        state.modulated_fear = desired_f
+        return state
+
+    def _record_stage_experience(
+        self,
+        stage_name: str,
+        state: EmotionState,
+        context_weights: ContextWeights,
+    ) -> None:
+        if stage_name not in self._stage_memory:
+            self._stage_memory[stage_name] = deque(maxlen=self._stage_memory_capacity)
+
+        env_w, social_w, internal_w = context_weights.normalize()
+        hedonic_gain = 1.0 + 0.2 * env_w + 0.1 * social_w
+        fear_gain = 1.0 + 0.15 * internal_w
+        snapshot = EmotionState(
+            _clamp(state.effective_happiness() * hedonic_gain),
+            _clamp(state.effective_fear() * fear_gain),
+        )
+        self._stage_memory[stage_name].append(snapshot)
+
+    def _emit_stage_metrics(self, context: StageContext, state: EmotionState) -> None:
+        if self._telemetry_hook is None:
+            return
+
+        affect_state = {
+            "happiness": state.effective_happiness(),
+            "fear": state.effective_fear(),
+            "ratio": state.ratio(),
+        }
+        ratio_bounds = context.affect_targets.get("ratio")
+        if ratio_bounds:
+            lower, upper = ratio_bounds
+            ratio = affect_state["ratio"]
+            deviation = 0.0
+            if ratio < lower:
+                deviation = lower - ratio
+            elif ratio > upper:
+                deviation = ratio - upper
+            affect_state["ratio_deviation"] = deviation
+
+        payload = {
+            "name": context.name,
+            "index": context.index,
+            "affect_targets": context.affect_targets,
+            "affect_state": affect_state,
+        }
+
+        try:
+            self._telemetry_hook(payload)
+        except (
+            Exception
+        ) as exc:  # pragma: no cover - telemetry failures shouldn't crash
+            self._logger.debug("Telemetry hook error: %s", exc)
 
     def evaluate(
         self,
@@ -391,7 +614,7 @@ class EmotionalEquilibriumAgent:
         *,
         context: Optional[Mapping[str, float]] = None,
         context_weights: Optional[ContextWeights] = None,
-    ) -> Dict[str, float | BehaviorState]:
+    ) -> Dict[str, object]:
         """Run the full architecture on the given affective signals.
 
         Parameters
@@ -408,22 +631,82 @@ class EmotionalEquilibriumAgent:
         """
 
         state = EmotionState(_clamp(happiness), _clamp(fear))
+        context_weights = context_weights or ContextWeights()
+
+        stage_context = self._resolve_stage_context()
+        if stage_context and (
+            self._active_stage is None
+            or stage_context.name != self._active_stage.name
+            or stage_context.index != self._active_stage.index
+        ):
+            self._handle_stage_transition(stage_context)
+        elif stage_context:
+            ratio_bounds_optional = stage_context.affect_targets.get("ratio")
+            if ratio_bounds_optional is not None:
+                ratio_bounds = ratio_bounds_optional
+                try:
+                    self.modulation.set_target_range(ratio_bounds)
+                except ValueError:
+                    self._logger.debug(
+                        "Ignoring invalid ratio bounds %s for stage %s",
+                        ratio_bounds,
+                        stage_context.name,
+                    )
+                self.modulation.entropy_buffer.set_tolerance(
+                    _entropy_tolerance_from_ratio(ratio_bounds)
+                )
+
+        active_stage = self._active_stage or stage_context
+        if active_stage:
+            targets = active_stage.affect_targets
+            happiness_bounds = targets.get("happiness")
+            if happiness_bounds:
+                state.happiness = _clamp(
+                    _regularize_toward_bounds(state.happiness, happiness_bounds)
+                )
+            fear_bounds = targets.get("fear")
+            if fear_bounds:
+                state.fear = _clamp(_regularize_toward_bounds(state.fear, fear_bounds))
+
         ratio = self.core.interpret(state)
         state = self.modulation.modulate(state)
         state = self.processing.process(state)
-        if context_weights is None:
-            context_weights = ContextWeights()
         state = self.integration.integrate(state, context_weights)
+
+        if active_stage:
+            ratio_targets = active_stage.affect_targets.get("ratio")
+            if ratio_targets is not None:
+                state = self._enforce_ratio_bounds(state, ratio_targets)
+
         behavior = self.output.classify(state)
-        equilibrium_prior = self.meta.update(state.ratio())
+        adjusted_ratio = state.ratio()
+        equilibrium_prior = self.meta.update(adjusted_ratio)
         meaning = self.governance.meaning(state, context)
+
+        if active_stage:
+            ratio_targets = active_stage.affect_targets.get("ratio")
+            if ratio_targets is not None and not (
+                ratio_targets[0] <= adjusted_ratio <= ratio_targets[1]
+            ):
+                self._logger.debug(
+                    "Stage '%s' ratio %.3f outside target band %s",
+                    active_stage.name,
+                    adjusted_ratio,
+                    ratio_targets,
+                )
+            self._record_stage_experience(active_stage.name, state, context_weights)
+            self._emit_stage_metrics(active_stage, state)
 
         return {
             "ratio": ratio,
-            "adjusted_ratio": state.ratio(),
+            "adjusted_ratio": adjusted_ratio,
             "behavior": behavior,
             "meaning": meaning,
             "equilibrium_prior": equilibrium_prior,
+            "context": {
+                "stage": active_stage.name if active_stage else None,
+                "stage_index": active_stage.index if active_stage else None,
+            },
         }
 
     def reset(self, *, equilibrium_prior: Optional[float] = None) -> None:
@@ -431,6 +714,7 @@ class EmotionalEquilibriumAgent:
 
         self.modulation.reset()
         self.meta.reset(equilibrium_prior=equilibrium_prior)
+        self._active_stage = None
 
     def persist_modulators(
         self,
@@ -497,6 +781,16 @@ class EEAMultiAgentPolicy:
     def reset(self) -> None:
         for agent in self._agents:
             agent.reset()
+
+    def configure_stage_awareness(
+        self,
+        stage_provider: Optional[StageProvider] = None,
+        telemetry_hook: Optional[Callable[[Mapping[str, object]], None]] = None,
+    ) -> None:
+        for agent in self._agents:
+            agent.configure_stage_awareness(
+                stage_provider=stage_provider, telemetry_hook=telemetry_hook
+            )
 
     def get_action(
         self, obs: np.ndarray, agent_id: int, deterministic: bool = False
@@ -598,3 +892,18 @@ __all__ = [
     "BehaviorState",
     "EEAMultiAgentPolicy",
 ]
+
+
+class StageProvider(Protocol):
+    """Callable that returns the active life-stage descriptor."""
+
+    def __call__(self) -> Optional[Any]: ...
+
+
+@dataclass(frozen=True)
+class StageContext:
+    """Snapshot of the active life stage relevant to affect modulation."""
+
+    name: str
+    index: int
+    affect_targets: Dict[str, Tuple[float, float]]

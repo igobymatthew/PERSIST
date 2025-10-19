@@ -79,3 +79,14 @@ where H ≈ 0.75 * (H + F)
 and dMeaning/dt peaks when 0.2 ≤ F/H ≤ 0.4
 
 This treats emotion like a feedback-regulated architecture—structured enough for analysis, fluid enough for human truth.
+⸻
+
+🔁 Emotional Equilibrium Atlas++ (Stage-Aware Affect)
+
+The Growth-Mimetic roadmap extends the scaffold into **EEA++**, coupling life-stage telemetry with the affective pipeline described above.
+
+- **Stage-conditioned targets.** When a `LifeStageManager` is active the modulation layer pulls the ratio, happiness, and fear bands from each stage’s `affect_targets` block in `viability.life_stages`. Signals are softly regularized toward those bands before modulation, and the entropy buffer widens or narrows based on the stage’s ratio width.
+- **Replay + recovery.** Affect experiences are stored with their `life_stage_index` inside the core `ReplayBuffer`, ensuring downstream learners can filter transitions by developmental context. When fire events or stage transitions occur, EEA++ re-seeds the entropy buffer with the most stage-relevant experiences so equilibrium priors snap to the new target window quickly.
+- **Telemetry.** Agents feed stage-scoped affect payloads to `TelemetryManager.update_life_stage`, which now exposes both the target bands and observed happiness/fear/ratio gauges. Prometheus dashboards gain banded visuals for “juvenile”, “adult”, etc., and deviations appear as `ratio_deviation` metrics for debugging.
+
+Together these hooks keep the Emotional Equilibrium Architecture synchronized with developmental stages while preserving the inspectable, modular design of the original scaffold.

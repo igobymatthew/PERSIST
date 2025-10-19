@@ -67,6 +67,11 @@ class TelemetryManager:
             "Target affect bounds for the active life stage.",
             ["affect", "bound"],
         )
+        self.life_stage_affect_state_gauge = Gauge(
+            "persist_life_stage_affect_state",
+            "Observed affect signals for the active life stage.",
+            ["affect"],
+        )
 
         # Counters (value only goes up)
         self.episodes_total_counter = Counter(
@@ -209,3 +214,14 @@ class TelemetryManager:
             self.life_stage_affect_bounds_gauge.labels(
                 affect=affect_name, bound="high"
             ).set(float(high))
+
+        affect_state = payload.get("affect_state") or {}
+        if isinstance(affect_state, dict):
+            for affect_name, value in affect_state.items():
+                try:
+                    numeric_value = float(value)
+                except (TypeError, ValueError):
+                    continue
+                self.life_stage_affect_state_gauge.labels(affect=str(affect_name)).set(
+                    numeric_value
+                )

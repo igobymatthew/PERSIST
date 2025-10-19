@@ -181,6 +181,27 @@ class LifeStageManager:
             return {}
         return dict(self._stages[self._current_index].affect_targets)
 
+    def current_stage_index(self) -> Optional[int]:
+        if not self._active:
+            return None
+        return self._current_index
+
+    def current_stage_name(self) -> Optional[str]:
+        if not self._active:
+            return None
+        return self._stages[self._current_index].name
+
+    def current_stage_summary(self) -> Optional[Dict[str, object]]:
+        if not self._active:
+            return None
+        stage = self._stages[self._current_index]
+        return {
+            "index": self._current_index,
+            "name": stage.name,
+            "affect_targets": dict(stage.affect_targets),
+            "duration": stage.duration,
+        }
+
     def is_active(self) -> bool:
         return self._active
 

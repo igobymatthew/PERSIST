@@ -85,15 +85,15 @@ class MultiAgentGridLifeEnv(gym.Env):
             # Move agent
             self.agent_positions[agent_id] = np.clip(self.agent_positions[agent_id] + action, [0, 0], [self.grid_size[0] - 1, self.grid_size[1] - 1]).astype(int)
 
-            # Update internal state (energy decay)
-            self.internal_states[agent_id][0] -= self.energy_decay
-
             # Check for resource consumption
             pos = self.agent_positions[agent_id]
             if self.food_map[pos[0], pos[1]] > 0:
                 self.internal_states[agent_id][0] = min(1.0, self.internal_states[agent_id][0] + 0.5)
                 self.food_map[pos[0], pos[1]] = 0  # Consume food
                 rewards[agent_id] += 1.0
+
+            # Update internal state (energy decay after resource effects)
+            self.internal_states[agent_id][0] -= self.energy_decay
 
             # Check for termination
             if self.internal_states[agent_id][0] <= 0:

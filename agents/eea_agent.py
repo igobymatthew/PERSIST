@@ -507,15 +507,16 @@ class EmotionalEquilibriumAgent:
         if ratio_bounds:
             try:
                 self.modulation.set_target_range(ratio_bounds)
-            except ValueError:
+            except (TypeError, ValueError):
                 self._logger.debug(
                     "Ignoring invalid ratio bounds %s for stage %s",
                     ratio_bounds,
                     context.name,
                 )
-            self.modulation.entropy_buffer.set_tolerance(
-                _entropy_tolerance_from_ratio(ratio_bounds)
-            )
+            else:
+                self.modulation.entropy_buffer.set_tolerance(
+                    _entropy_tolerance_from_ratio(ratio_bounds)
+                )
 
         if context.name not in self._stage_memory:
             self._stage_memory[context.name] = deque(maxlen=self._stage_memory_capacity)
@@ -646,15 +647,16 @@ class EmotionalEquilibriumAgent:
                 ratio_bounds = ratio_bounds_optional
                 try:
                     self.modulation.set_target_range(ratio_bounds)
-                except ValueError:
+                except (TypeError, ValueError):
                     self._logger.debug(
                         "Ignoring invalid ratio bounds %s for stage %s",
                         ratio_bounds,
                         stage_context.name,
                     )
-                self.modulation.entropy_buffer.set_tolerance(
-                    _entropy_tolerance_from_ratio(ratio_bounds)
-                )
+                else:
+                    self.modulation.entropy_buffer.set_tolerance(
+                        _entropy_tolerance_from_ratio(ratio_bounds)
+                    )
 
         active_stage = self._active_stage or stage_context
         if active_stage:

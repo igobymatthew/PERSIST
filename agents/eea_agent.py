@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
+from numbers import Integral
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
@@ -446,12 +447,16 @@ class EmotionalEquilibriumAgent:
         self._stage_memory: Dict[str, Deque[EmotionState]] = {}
         self._stage_memory_capacity = 64
         self._active_stage: Optional[StageContext] = None
+        self._fire_event_registered = False
 
     def configure_stage_awareness(
         self,
         *,
         stage_provider: Optional[StageProvider] = None,
         telemetry_hook: Optional[Callable[[Mapping[str, object]], None]] = None,
+        fire_event_register: Optional[
+            Callable[[Callable[[Mapping[str, object]], None]], None]
+        ] = None,
     ) -> None:
         """Attach runtime providers for life-stage awareness and telemetry."""
 
@@ -459,6 +464,44 @@ class EmotionalEquilibriumAgent:
             self._stage_provider = stage_provider
         if telemetry_hook is not None:
             self._telemetry_hook = telemetry_hook
+        if fire_event_register is not None and not self._fire_event_registered:
+            fire_event_register(self._handle_fire_event)
+            self._fire_event_registered = True
+
+    def _coerce_stage_context(
+        self, payload: Mapping[str, object] | StageContext | None
+    ) -> Optional[StageContext]:
+        if payload is None:
+            return None
+        if isinstance(payload, StageContext):
+            return payload
+
+        raw_targets = payload.get("affect_targets") or {}
+        targets: Dict[str, Tuple[float, float]] = {}
+        if isinstance(raw_targets, Mapping):
+            for key, bounds in raw_targets.items():
+                try:
+                    lower, upper = bounds  # type: ignore[misc]
+                except (TypeError, ValueError):
+                    continue
+                try:
+                    targets[str(key)] = (float(lower), float(upper))
+                except (TypeError, ValueError):
+                    continue
+
+        raw_name = payload.get("name")
+        name = str(raw_name) if raw_name is not None else "stage"
+        raw_index = payload.get("index")
+        index = -1
+        if isinstance(raw_index, Integral):
+            index = int(raw_index)
+        elif isinstance(raw_index, str):
+            try:
+                index = int(raw_index)
+            except ValueError:
+                index = -1
+
+        return StageContext(name=name, index=index, affect_targets=targets)
 
     def _resolve_stage_context(self) -> Optional[StageContext]:
         if self._stage_provider is None:
@@ -479,28 +522,7 @@ class EmotionalEquilibriumAgent:
                 "affect_targets": getattr(raw_context, "affect_targets", {}),
             }
 
-        raw_targets = payload.get("affect_targets") or {}
-        targets: Dict[str, Tuple[float, float]] = {}
-        if isinstance(raw_targets, Mapping):
-            for key, bounds in raw_targets.items():
-                try:
-                    lower, upper = bounds  # type: ignore[misc]
-                except (TypeError, ValueError):
-                    continue
-                try:
-                    targets[str(key)] = (float(lower), float(upper))
-                except (TypeError, ValueError):
-                    continue
-
-        raw_name = payload.get("name")
-        name = str(raw_name) if raw_name is not None else "stage"
-        raw_index = payload.get("index")
-        try:
-            index = int(raw_index) if raw_index is not None else -1
-        except (TypeError, ValueError):
-            index = -1
-
-        return StageContext(name=name, index=index, affect_targets=targets)
+        return self._coerce_stage_context(payload)
 
     def _handle_stage_transition(self, context: StageContext) -> None:
         ratio_bounds = context.affect_targets.get("ratio")
@@ -518,10 +540,15 @@ class EmotionalEquilibriumAgent:
                     _entropy_tolerance_from_ratio(ratio_bounds)
                 )
 
-        if context.name not in self._stage_memory:
-            self._stage_memory[context.name] = deque(maxlen=self._stage_memory_capacity)
+        self._seed_stage_buffers(context)
+        self._active_stage = context
 
-        experiences = list(self._stage_memory[context.name])
+    def _seed_stage_buffers(self, context: StageContext) -> None:
+        memory = self._stage_memory.setdefault(
+            context.name, deque(maxlen=self._stage_memory_capacity)
+        )
+        experiences = list(memory)
+        ratio_bounds = context.affect_targets.get("ratio")
         if ratio_bounds and experiences:
             midpoint = sum(ratio_bounds) * 0.5
             experiences.sort(key=lambda s: abs(s.ratio() - midpoint))
@@ -535,7 +562,24 @@ class EmotionalEquilibriumAgent:
                 self.meta.reset()
             self.modulation.entropy_buffer.reset()
 
-        self._active_stage = context
+    def _handle_fire_event(self, payload: Mapping[str, object]) -> None:
+        raw_context = payload.get("context")
+        context_payload = raw_context if isinstance(raw_context, Mapping) else {}
+
+        stage_hint: Mapping[str, object] | StageContext | None = None
+        if context_payload:
+            stage_hint = context_payload.get("stage") or context_payload.get(
+                "life_stage"
+            )
+
+        stage_context = self._coerce_stage_context(stage_hint)
+        if stage_context is not None:
+            self._handle_stage_transition(stage_context)
+            return
+
+        active = self._active_stage or self._resolve_stage_context()
+        if active is not None:
+            self._seed_stage_buffers(active)
 
     def _enforce_ratio_bounds(
         self, state: EmotionState, ratio_bounds: Tuple[float, float]

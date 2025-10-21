@@ -142,7 +142,13 @@ class ExperimentCoordinator:
                     actor_model = getattr(self.agent, "actor", None)
                     if actor_model is None and hasattr(self.agent, "policy"):
                         actor_model = getattr(self.agent.policy, "actor", None)
-                    FireEvent.apply(actor_model)
+                    fire_context = {"reason": "environment_signal"}
+                    manager = getattr(self, "life_stage_manager", None)
+                    if manager is not None:
+                        summary = manager.current_stage_summary()
+                        if summary is not None:
+                            fire_context["stage"] = summary
+                    FireEvent.apply(actor_model, context=fire_context)
                     if self.continual_learning_manager and self.rehearsal_buffer:
                         self.continual_learning_manager.consolidate(
                             self.rehearsal_buffer
@@ -432,4 +438,8 @@ class ExperimentCoordinator:
         if actor_model is None and hasattr(self.agent, "policy"):
             actor_model = getattr(self.agent.policy, "actor", None)
         if actor_model is not None:
-            FireEvent.apply(actor_model)
+            fire_context = {"reason": "life_stage_transition"}
+            summary = manager.current_stage_summary()
+            if summary is not None:
+                fire_context["stage"] = summary
+            FireEvent.apply(actor_model, context=fire_context)

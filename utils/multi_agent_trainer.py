@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
+import inspect
+
 import torch
 
 
@@ -25,6 +27,8 @@ class MultiAgentTrainer:
 
         # Assuming homogeneous agents for now, using one policy
         self.policy = self.policies["default"]
+
+        self._configure_stage_awareness()
 
         print("✅ MultiAgentTrainer initialized.")
 
@@ -146,6 +150,38 @@ class MultiAgentTrainer:
             print(
                 f"Episode {episode}: Length={ep_len}, TotalReward={ep_rew:.2f}, Steps={total_steps}"
             )
+
+    def _configure_stage_awareness(self) -> None:
+        manager = getattr(self, "life_stage_manager", None)
+        telemetry = getattr(self, "telemetry_manager", None)
+        if not isinstance(getattr(self, "policies", None), dict):
+            return
+
+        stage_provider = None
+        if manager is not None and hasattr(manager, "current_stage_summary"):
+            stage_provider = manager.current_stage_summary
+
+        telemetry_hook = None
+        if telemetry is not None and hasattr(telemetry, "update_life_stage"):
+            telemetry_hook = telemetry.update_life_stage
+
+        for policy in self.policies.values():
+            if not hasattr(policy, "configure_stage_awareness"):
+                continue
+
+            configure = getattr(policy, "configure_stage_awareness")
+            try:
+                params = inspect.signature(configure).parameters
+            except (TypeError, ValueError):
+                params = {}
+
+            kwargs = {}
+            if "stage_provider" in params and stage_provider is not None:
+                kwargs["stage_provider"] = stage_provider
+            if "telemetry_hook" in params and telemetry_hook is not None:
+                kwargs["telemetry_hook"] = telemetry_hook
+
+            configure(**kwargs)
 
     def _flatten_obs(self, obs_dict):
         """Flattens a dictionary observation into a single numpy array."""

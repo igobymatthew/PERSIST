@@ -601,6 +601,7 @@ class ComponentFactory:
             cbf_coupler = self.create_cbf_coupler(env)
 
             telemetry_manager = self.create_telemetry_manager()
+            life_stage_manager = self.create_life_stage_manager()
 
             components = {
                 "env": env,
@@ -609,6 +610,7 @@ class ComponentFactory:
                 "resource_allocator": resource_allocator,
                 "cbf_coupler": cbf_coupler,
                 "telemetry_manager": telemetry_manager,
+                "life_stage_manager": life_stage_manager,
                 "device": self.device,
                 "config": self.config,
             }

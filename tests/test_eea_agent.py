@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
+import torch.nn as nn
 
 from agents.eea_agent import ContextWeights, EmotionalEquilibriumAgent
+from components.fire_event import FireEvent
 from components.replay_buffer import ReplayBuffer
 
 
@@ -72,6 +74,38 @@ def test_stage_transition_reseeds_entropy_and_prior():
     expected_prior = sum(provider.stages[1]["affect_targets"]["ratio"]) / 2
     assert agent.meta.equilibrium_prior == pytest.approx(expected_prior, abs=0.01)
     assert agent.modulation.entropy_buffer.history, "History should be reseeded"
+
+
+def test_fire_event_recovery_reseeds_stage_memory():
+    FireEvent.clear_listeners()
+    provider = DummyStageProvider()
+    telemetry_payloads = []
+    agent = EmotionalEquilibriumAgent(stage_provider=provider)
+    agent.configure_stage_awareness(
+        stage_provider=provider,
+        telemetry_hook=telemetry_payloads.append,
+        fire_event_register=FireEvent.register_listener,
+    )
+    weights = ContextWeights(environmental=1.5, social=0.5, internal=0.25)
+
+    for _ in range(5):
+        agent.evaluate(0.65, 0.25, context_weights=weights)
+
+    agent.meta.equilibrium_prior = 0.2
+    stage_info = provider()
+
+    FireEvent.apply(
+        nn.Linear(1, 1, bias=False),
+        prune_fraction=0.0,
+        threshold_scale=1.0,
+        context={"reason": "unit_test", "stage": stage_info},
+    )
+
+    midpoint = sum(stage_info["affect_targets"]["ratio"]) / 2
+    assert agent.meta.equilibrium_prior == pytest.approx(midpoint, abs=0.01)
+    assert agent.modulation.entropy_buffer.history
+
+    FireEvent.clear_listeners()
 
 
 def test_replay_buffer_includes_stage_index():

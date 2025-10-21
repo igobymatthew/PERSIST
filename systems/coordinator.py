@@ -1,3 +1,5 @@
+import inspect
+
 import torch
 import numpy as np
 
@@ -48,7 +50,60 @@ class ExperimentCoordinator:
         else:
             print("ℹ️ Curriculum disabled, using fixed parameters.")
 
+        self._configure_life_stage_observers()
+
         print("✅ Experiment Coordinator initialized.")
+
+    def _configure_life_stage_observers(self) -> None:
+        """Wire life-stage providers, telemetry, and fire events into agents."""
+
+        manager = getattr(self, "life_stage_manager", None)
+        telemetry = getattr(self, "telemetry_manager", None)
+
+        stage_provider = None
+        if manager is not None and hasattr(manager, "current_stage_summary"):
+            stage_provider = manager.current_stage_summary
+
+        telemetry_hook = None
+        if telemetry is not None and hasattr(telemetry, "update_life_stage"):
+            telemetry_hook = telemetry.update_life_stage
+
+        fire_event_register = None
+        if manager is not None:
+            fire_event_register = FireEvent.register_listener
+
+        def _configure_stage_target(target) -> None:
+            if target is None or not hasattr(target, "configure_stage_awareness"):
+                return
+
+            configure = getattr(target, "configure_stage_awareness")
+            try:
+                signature = inspect.signature(configure)
+            except (TypeError, ValueError):
+                signature = None
+
+            kwargs = {}
+            if signature is not None:
+                params = signature.parameters
+                if "stage_provider" in params and stage_provider is not None:
+                    kwargs["stage_provider"] = stage_provider
+                if "telemetry_hook" in params and telemetry_hook is not None:
+                    kwargs["telemetry_hook"] = telemetry_hook
+                if "fire_event_register" in params and fire_event_register is not None:
+                    kwargs["fire_event_register"] = fire_event_register
+
+            configure(**kwargs)
+
+        _configure_stage_target(getattr(self, "agent", None))
+
+        trainer = getattr(self, "trainer", None)
+        _configure_stage_target(trainer)
+
+        if trainer is not None:
+            policies = getattr(trainer, "policies", None)
+            if isinstance(policies, dict):
+                for policy in policies.values():
+                    _configure_stage_target(policy)
 
     def run(self):
         """
@@ -142,7 +197,13 @@ class ExperimentCoordinator:
                     actor_model = getattr(self.agent, "actor", None)
                     if actor_model is None and hasattr(self.agent, "policy"):
                         actor_model = getattr(self.agent.policy, "actor", None)
-                    FireEvent.apply(actor_model)
+                    fire_context = {"reason": "environment_signal"}
+                    manager = getattr(self, "life_stage_manager", None)
+                    if manager is not None:
+                        summary = manager.current_stage_summary()
+                        if summary is not None:
+                            fire_context["stage"] = summary
+                    FireEvent.apply(actor_model, context=fire_context)
                     if self.continual_learning_manager and self.rehearsal_buffer:
                         self.continual_learning_manager.consolidate(
                             self.rehearsal_buffer
@@ -432,4 +493,8 @@ class ExperimentCoordinator:
         if actor_model is None and hasattr(self.agent, "policy"):
             actor_model = getattr(self.agent.policy, "actor", None)
         if actor_model is not None:
-            FireEvent.apply(actor_model)
+            fire_context = {"reason": "life_stage_transition"}
+            summary = manager.current_stage_summary()
+            if summary is not None:
+                fire_context["stage"] = summary
+            FireEvent.apply(actor_model, context=fire_context)

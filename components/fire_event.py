@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Callable, List, Mapping, Optional
 
 import torch
 import torch.nn as nn
@@ -9,6 +9,7 @@ class FireEvent:
     """Utility for applying rapid plasticity changes after a fire trigger."""
 
     event_log = []
+    _listeners: List[Callable[[Mapping[str, object]], None]] = []
 
     @classmethod
     def apply(
@@ -16,6 +17,7 @@ class FireEvent:
         model: Optional[nn.Module],
         prune_fraction: float = 0.1,
         threshold_scale: float = 0.5,
+        context: Optional[Mapping[str, object]] = None,
     ) -> None:
         """Apply pruning and threshold mutation to the provided model."""
         if model is None:
@@ -25,12 +27,16 @@ class FireEvent:
         if not logger.handlers:
             handler = logging.StreamHandler()
             handler.setFormatter(
-                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+                logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                )
             )
             logger.addHandler(handler)
             logger.setLevel(logging.INFO)
 
-        logger.info("🔥 FireEvent triggered: compressing weights and lowering thresholds.")
+        logger.info(
+            "🔥 FireEvent triggered: compressing weights and lowering thresholds."
+        )
         cls._prune_weights(model, prune_fraction, logger)
         cls._mutate_thresholds(model, threshold_scale, logger)
 
@@ -39,11 +45,21 @@ class FireEvent:
                 "message": "FireEvent applied",
                 "prune_fraction": prune_fraction,
                 "threshold_scale": threshold_scale,
+                "context": dict(context) if isinstance(context, Mapping) else context,
             }
         )
 
+        payload = {
+            "prune_fraction": prune_fraction,
+            "threshold_scale": threshold_scale,
+            "context": dict(context) if isinstance(context, Mapping) else {},
+        }
+        cls._notify_listeners(payload)
+
     @staticmethod
-    def _prune_weights(model: nn.Module, prune_fraction: float, logger: logging.Logger) -> None:
+    def _prune_weights(
+        model: nn.Module, prune_fraction: float, logger: logging.Logger
+    ) -> None:
         if prune_fraction <= 0:
             return
 
@@ -93,3 +109,25 @@ class FireEvent:
     @classmethod
     def get_event_log(cls):
         return list(cls.event_log)
+
+    @classmethod
+    def register_listener(
+        cls, listener: Callable[[Mapping[str, object]], None]
+    ) -> None:
+        if listener not in cls._listeners:
+            cls._listeners.append(listener)
+
+    @classmethod
+    def clear_listeners(cls) -> None:
+        cls._listeners.clear()
+
+    @classmethod
+    def _notify_listeners(cls, payload: Mapping[str, object]) -> None:
+        if not cls._listeners:
+            return
+        for listener in list(cls._listeners):
+            try:
+                listener(payload)
+            except Exception as exc:  # pragma: no cover - listeners are best-effort
+                logger = logging.getLogger("FireEvent")
+                logger.debug("FireEvent listener error: %s", exc)

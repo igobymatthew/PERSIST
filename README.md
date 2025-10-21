@@ -56,6 +56,24 @@ After you make your selections, the final configuration will be displayed for co
 
 
 ### Progress Updates
+*   **2025-10-19T22:02:14-04:00**: Ensured post-resource energy spikes still decay in multi-agent GridLife.
+    *   Applied a fixed per-step decay after food consumption so agents cannot hover at max energy indefinitely, restoring attrition dynamics in long horizons.
+*   **2025-10-19T19:07:55-04:00**: Delivered stage-aware Emotional Equilibrium Atlas++ upgrades.
+    *   Taught `EmotionalEquilibriumAgent` to pull life-stage targets, reseed entropy buffers, emit telemetry payloads, and share providers with the heuristic multi-agent policy.
+    *   Threaded `life_stage_index` through replay buffers, trainers, and coordinator telemetry so developmental context travels with every stored experience and Prometheus gauge.
+    *   Added focused tests to lock stage-bound ratio enforcement, transition reseeding, and LifeStageManager progressions.
+*   **2025-10-18T15:52:43-04:00**: Added a Dreamer-style latent world model with imagination rollouts.
+    *   Implemented an RSSM backbone, rollout API, and Dreamer-specific optimizers plus regression tests covering KL math and viability rollouts.
+    *   Wired factory/trainer hooks so `world_model.type: "dreamer"` toggles the new module, updates intrinsic reward flows, and exposes enablement steps in docs and walkthroughs.
+*   **2025-10-18T11:18:51-04:00**: Captured Growth-Mimetic roadmap status and filed implementation issues.
+    *   Authored a technology pitch summarizing stage dynamics, biodiversity simulators, and lineage memory plans with milestone checklists.
+    *   Opened detailed issue briefs for the Dreamer upgrade, EEA++, biodiversity fabric, and transgenerational memory weave initiatives.
+*   **2025-10-16T19:15:05-04:00**: Introduced life-stage management scaffolding and telemetry visibility.
+    *   Created `LifeStageManager` to parse viability schemas, emit stage metrics, and preview timelines in the CLI walkthrough.
+    *   Expanded Prometheus gauges to report stage index, progress, affect bands, and transition counters for dashboarding.
+*   **2025-10-13T09:00:20-04:00**: Added a heuristic multi-agent controller driven by the EEA scaffold.
+    *   Built `EEAMultiAgentPolicy` with observation splitting, behavior-conditioned movement heuristics, and deterministic seeding for reproducible swarm runs.
+    *   Extended replay tests to confirm stage indices propagate alongside joint transitions.
 *   **2025-10-04T09:02:05-04:00**: Implemented a Genetic Algorithm (GA) engine for meta-optimization.
     *   Added a new `evolution` module containing a generic GA/ES engine, NSGA-II selection, and operators for mutation and crossover.
     *   Integrated the GA engine into the main CLI, allowing users to run GA-based experiments to optimize hyperparameters.

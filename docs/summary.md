@@ -79,3 +79,63 @@ The result is an ecosystem where agents, populations, and even the training engi
 ---
 
 ## 🧩 Repository Layout
+
+Core Directory Layout
+
+persist/engine/ — Core logic for the adaptive persistence framework
+	•	core/ — Base runtime, state/action mechanics, viability ops
+	•	empowerment/ — Intrinsic motivation & control estimation modules
+	•	viability/ — ViabilityApproximator, EnsembleShield, constraint functions
+	•	memory/ — Rehearsal buffers, Elastic Weight Consolidation, persistence utilities
+
+persist/agents/ — Implementations of behavioral and reflective agents
+	•	mpc_agent.py — Reach-Avoid MPC controller
+	•	cvar_sac.py — Risk-sensitive SAC variant (CVaR objective)
+	•	emotional_eq.py — Emotional Equilibrium Agent++ (affect-based regulation)
+	•	meta_learner.py — Meta-adaptive setpoint tuner
+
+persist/population/ — Multi-agent and ecosystemic coordination layer
+	•	multi_agent_env.py — Collective training environment
+	•	ensemble_shield.py — Multi-model safety consensus layer
+	•	biodiversity_fabric.py — Biodiversity Fabric Simulator (BFS) for ecosystem simulation
+
+persist/components/ — Shared building blocks and computational primitives
+	•	empowerment.py — Mutual information estimators, curiosity drivers
+	•	constraint_manager.py — Penalty scaling and viability management
+	•	safety_network.py — Viability and reachability classifiers
+	•	latent_world_model.py — Dreamer-style RSSM imagination system
+	•	cbf_layer.py — Control Barrier Function layer for constrained safety
+
+persist/ops/ — Operational systems, telemetry, and observability
+	•	telemetry.py — Prometheus hooks, metrics pipelines
+	•	alerts.yml — Observability and failure alert configuration
+	•	maintenance_tasks.py — Health checks and automated FireCycle triggers
+
+persist/tools/ — Utilities for optimization, reachability, and experimentation
+	•	ga_engine.py — Genetic Algorithm / NSGA-II evolutionary engine
+	•	hj_reachability/ — Hamilton–Jacobi reachability utilities
+	•	fuzz_scenarios.py — Stress-testing and perturbation scenario generator
+
+persist/docs/ — Research documentation and conceptual references
+	•	roadmap_vXR.md — Full academic + philosophical roadmap
+	•	summary.md — GitHub front-page overview
+	•	theory.md — Formal theoretical and mathematical background
+
+persist/tests/ — Verification, regression, and safety tests
+	•	test_components.py — Unit tests for low-level components
+	•	test_viability.py — Viability kernel validation
+	•	test_multiagent_env.py — BFS and population behavior tests
+
+main.py — Interactive CLI entrypoint and experimental launcher
+
+⸻
+
+🧠 Contributor Notes
+
+All modules follow a viability-first design philosophy:
+	•	Each subsystem must expose Prometheus telemetry for self-monitoring.
+	•	New features require rollback or FireCycle-safe reset logic.
+	•	Configurations must remain reproducible through config.yaml manifests.
+	•	All agents, even experimental ones, must integrate the Viability Kernel.
+
+⸻

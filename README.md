@@ -56,6 +56,8 @@ After you make your selections, the final configuration will be displayed for co
 
 
 ### Progress Updates
+*   **2025-10-23T14:32:00+00:00**: Expanded UI/UX roadmap with replay, collaboration, and ops-aligned ideas.
+    *   Added narrative tooling, persona-driven flows, and operations integrations to `docs/ui_ux_improvements.md` so design and engineering teams can prioritize richer telemetry storytelling and handoff experiences.
 *   **2025-10-22T00:12:23+00:00**: Delivered the Biodiversity Fabric Simulator milestone.
     *   Landed species archetype schemas, succession knobs, and telemetry wiring so BFS scenarios can be configured from the CLI and config files.
     *   Upgraded multi-agent environments, population shielding, and Prometheus gauges to track richness, trophic stability, and mutualism dynamics.

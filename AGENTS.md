@@ -1,4 +1,5 @@
 Agent Development Guidelines
+ • For every commit, update the readme's "Progress Updates" with major changes and what that enables the user to do. 
 
 Required Checks
 	•	✅ Run pytest from the project root before committing any changes to agent logic.

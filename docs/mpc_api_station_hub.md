@@ -1,10 +1,5 @@
-excellent — this is the piece that closes the loop and makes the orbital hub a natural extension of PERSIST rather than a side project.
 
-here’s the full architectural module blueprint for persist/hub/, written to integrate directly into your existing repo hierarchy.
-
-⸻
-
-🛰️ persist/hub/ — Orbital Governance & Maintenance Layer
+##🛰️ persist/hub/ — Orbital Governance & Maintenance Layer
 
 Extends the persistence cycle beyond the individual agent to a planetary-scale habitat for model ecosystems.
 

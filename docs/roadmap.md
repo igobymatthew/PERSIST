@@ -12,9 +12,9 @@ We are sequencing work so contributors can land the Growth-Mimetic stack in reli
 
 | Task | Owner | Dependencies | Exit Criteria |
 |------|-------|--------------|---------------|
-| Expand viability schema with `life_stage` descriptors and validation helpers. | Schema lead | Existing `schemas/viability.py` infrastructure | CLI loads configs with stage previews; schema unit tests cover invalid bands. *(Status: ✅ Completed – see `schemas/viability.schema.json` and `tests/test_life_stage_manager.py`.)* |
-| TelemetryManager emits `life_stage`, `stage_age`, and shield adjustment events. | Telemetry lead | Schema extension above | Local smoke test shows timeline log in `persist.log`; docs updated with field descriptions. *(Status: ✅ Completed – implemented in `ops/telemetry.py::update_life_stage`.)* |
-| CLI `--preview-growth` command surfaces stage sequence using new schema. | Tooling lead | Schema + Telemetry instrumentation | Running `python main.py --preview-growth config.yaml` prints stage table; README cross-link added. *(Status: ✅ Completed – lifecycle preview renders via `main.py::_render_life_stage_timeline`.)* |
+| Expand viability schema with `life_stage` descriptors and validation helpers. | Schema lead | Existing `schemas/viability.py` infrastructure | CLI loads configs with stage previews; schema unit tests cover invalid bands. *(Status: ✅ Completed in commit `8638d78` on 2025-10-16 – see `schemas/viability.schema.json` and `tests/test_life_stage_manager.py`.)* |
+| TelemetryManager emits `life_stage`, `stage_age`, and shield adjustment events. | Telemetry lead | Schema extension above | Local smoke test shows timeline log in `persist.log`; docs updated with field descriptions. *(Status: ✅ Completed via `ops/telemetry.py::update_life_stage` in commit `8638d78` (2025-10-16) with follow-on affect payloads added in `b7a343b` (2025-10-19).)* |
+| CLI life-stage preview surfaces stage sequence using new schema. | Tooling lead | Schema + Telemetry instrumentation | Running the interactive CLI now prints the stage table during config generation; README cross-link added. *(Status: ✅ Completed by `main.py::_render_life_stage_timeline` in commit `8638d78` (2025-10-16); there is no `--preview-growth` flag—preview renders automatically in the guided flows.)* |
 
 ### Milestone runbook
 
@@ -22,9 +22,19 @@ We are sequencing work so contributors can land the Growth-Mimetic stack in reli
 |-----------|------------------|-------------------|--------------|
 | **M0 – Schema & Telemetry Scaffolding** | Stage-aware schema bands, telemetry surfaces, CLI preview. | Schema validation CI, telemetry smoke logs attached to PR. | Update pitch + roadmap, add quickstart to `docs/growth_mimetic_technologies.md`. |
 | **M1 – LifeStage Dynamics Graph** | Deterministic stage transitions, optimizer reset hooks, shield parameter refresh. | Regression suite covering stage jumps and shield re-parameterization. | Add LDG walkthrough to `docs/use_case_walkthroughs.md`. |
-| **M2 – EEA++ Affect Loop** | Stage-sensitive affect buffers, replay banks, recovery metrics. | Affect ratio simulations with expected bounds + faster recovery metrics recorded. | Extend `docs/EEA.md` with stage tables and emotional telemetry examples. |
-| **M3 – Biodiversity Fabric Simulator** | Species archetypes, habitat succession knobs, telemetry for richness. | Multi-species scenario smoke test in CI; dashboards capture richness trends. | Publish BFS devlog entry + configuration recipes. |
+| **M2 – EEA++ Affect Loop** | Stage-sensitive affect buffers, replay banks, recovery metrics. | Affect ratio simulations with expected bounds + faster recovery metrics recorded. | Extend `docs/EEA.md` with stage tables and emotional telemetry examples. *(Status: ✅ Life-stage targets and FireEvent reseeding landed in commits `b7a343b` (2025-10-19) and `42158dc` (2025-10-21); telemetry dashboard examples still pending.)* |
+| **M3 – Biodiversity Fabric Simulator** | Species archetypes, habitat succession knobs, telemetry for richness. | Multi-species scenario smoke test in CI; dashboards capture richness trends. | Publish BFS devlog entry + configuration recipes. *(Status: ✅ Multi-agent environment and archetypes landed in `7237644` (2025-09-27); Prometheus gauges for richness/trophic stability shipped in `e7a790f` (2025-10-21).)* |
 | **M4 – Transgenerational Memory Weave** | Policy archival, Fisher-masked blending for new agents. | Lineage benchmarks showing improved recovery + reduced unsafe exploration. | Draft lineage operations guide in `docs/growth_mimetic_devlog/`. |
+
+### Timeline checkpoints
+
+- **2025-10-21 — `42158dc`**: FireEvent recovery became stage-aware, reseeding EEA buffers after regeneration.
+- **2025-10-19 — `b7a343b`**: Emotional Equilibrium Atlas++ pulled life-stage targets, emitted telemetry payloads, and began caching per-stage memories.
+- **2025-10-18 — `3262acf`**: Dreamer RSSM rollouts integrated with shielding and trainer hooks.
+- **2025-10-16 — `8638d78`**: Life-stage schema, CLI preview, and telemetry gauges landed together with coordinator wiring.
+- **2025-10-04 — `8c1e9f2`**: Genetic Algorithm engine shipped with CLI integration and operators.
+- **2025-09-27 — `7237644`**: Multi-agent GridLife environment introduced species archetypes, succession phases, and population safety coordination.
+- **2025-09-27 — `1e843f6`**: Elastic Weight Consolidation core added rehearsal buffers for continual learning.
 
 ## ✅ What’s going well
 

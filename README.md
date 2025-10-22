@@ -56,6 +56,9 @@ After you make your selections, the final configuration will be displayed for co
 
 
 ### Progress Updates
+*   **2025-10-25T18:00:00+00:00**: Documented an implementation timeline across roadmap and pitch materials.
+    *   Annotated `docs/summary.md`, `docs/roadmap.md`, `docs/growth_mimetic_technologies.md`, and `docs/roadmap102125.md` with commit-stamped checkpoints so contributors can see which growth-mimetic features already landed and what remains.
+    *   Clarified that the CLI renders life-stage previews automatically (no `--preview-growth` flag) and highlighted outstanding telemetry storytelling work for EEA++.
 *   **2025-10-25T12:00:00+00:00**: Expanded the UI/UX improvement backlog with navigation, celebration, and dashboard starter ideas.
     *   Enriched `docs/ui_ux_improvements.md` with rewindable CLI controls, milestone callouts, Prometheus dashboard kits, and onboarding visuals so experience workstreams have actionable next steps.
 *   **2025-10-24T09:15:00+00:00**: Refined the UI/UX improvements backlog around guidance-first enhancements.

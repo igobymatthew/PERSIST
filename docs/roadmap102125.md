@@ -23,6 +23,16 @@ Three convergent lines motivate the design:
 
 The vXR roadmap fuses these logics into an engine where a fine-tuned internal model (Overseer-LoRA) reallocates learning rates, adjusts adapter mixes, schedules Fire Cycles, and manages environmental entropy to preserve viability across timescales.
 
+## Implementation Timeline Snapshots
+
+- **2025-10-21 — `42158dc`**: Stage-aware FireEvent recovery locked in life-stage reseeding for EEA++ agents.
+- **2025-10-19 — `b7a343b`**: Emotional Equilibrium Atlas++ began consuming life-stage targets and streaming telemetry payloads.
+- **2025-10-18 — `3262acf`**: Dreamer RSSM world model landed with imagination rollouts for shielding and planning.
+- **2025-10-16 — `8638d78`**: LifeStageManager, viability schema bands, and CLI timeline preview shipped together with telemetry gauges.
+- **2025-10-04 — `8c1e9f2`**: GA/NSGA-II engine exposed meta-optimization flows through the interactive CLI.
+- **2025-09-27 — `7237644`**: Multi-agent GridLife environment expanded into the Biodiversity Fabric Simulator with species archetypes and succession phases.
+- **2025-09-27 — `1e843f6`**: Elastic Weight Consolidation core established continual learning foundations with rehearsal buffers.
+
 ⸻
 
 2. System Architecture Overview

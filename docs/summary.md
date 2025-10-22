@@ -46,14 +46,27 @@ The result is an ecosystem where agents, populations, and even the training engi
 
 ## 🔄 Current Capabilities
 
-- Continual learning with EWC and rehearsal buffers  
-- Fire Cycle regeneration with controlled entropy reduction  
-- Multi-agent and population-level simulations (CTDE)  
-- Dreamer-RSSM imagination rollouts  
-- Emotional Equilibrium Agents (EEA++) with life-stage awareness  
-- Evolutionary search via GA/NSGA-II engine  
-- Prometheus telemetry and alerting for viability metrics  
-- Biodiversity Fabric Simulator (BFS) for multi-species ecosystems  
+- Continual learning with EWC and rehearsal buffers
+- Fire Cycle regeneration with controlled entropy reduction
+- Multi-agent and population-level simulations (CTDE)
+- Dreamer-RSSM imagination rollouts
+- Emotional Equilibrium Agents (EEA++) with life-stage awareness
+- Evolutionary search via GA/NSGA-II engine
+- Prometheus telemetry and alerting for viability metrics
+- Biodiversity Fabric Simulator (BFS) for multi-species ecosystems
+
+## 🗓️ Implementation Timeline
+
+| Capability | Implementation Snapshot | Follow-up Scope |
+|------------|------------------------|-----------------|
+| Life-stage schema, telemetry, and CLI timeline preview | `8638d78` (2025-10-16) introduced `LifeStageManager`, expanded `schemas/viability.schema.json`, and added the Rich-powered timeline preview in `main.py`, wiring stage metrics into `ops/telemetry.TelemetryManager`. | Stage-tuned shield parameter search remains open. |
+| Stage-aware Emotional Equilibrium Atlas++ | `b7a343b` (2025-10-19) threaded life-stage targets through `agents/eea_agent.py`; `42158dc` (2025-10-21) added FireEvent recovery hooks so affect buffers reseed during regeneration. | Extend context-weighted replay to multi-agent evaluators. |
+| Dreamer-style latent world model | `3262acf` (2025-10-18) landed the RSSM backbone, rollout API, and trainer integration for imagination-driven shielding. | Optimize rollout budgets once governance hooks arrive. |
+| Genetic Algorithm / NSGA-II engine | `8c1e9f2` (2025-10-04) added the modular GA core, operators, and CLI entry point for meta-optimization experiments. | Couple GA objectives with biodiversity and persistence metrics. |
+| Biodiversity Fabric Simulator & telemetry | `7237644` (2025-09-27) created `MultiAgentGridLifeEnv` with species archetypes and succession phases; `e7a790f` (2025-10-21) exported richness and trophic stability via `TelemetryManager.update_biodiversity`. | Automate curriculum hand-offs using telemetry windows. |
+| Continual learning with EWC | `1e843f6` (2025-09-27) implemented the EWC-driven `components/continual.py` stack and rehearsal buffers. | Investigate adaptive Fisher weighting per life stage. |
+| Fire Cycle regeneration hooks | `ff5db30` (2025-09-28) wired FireEvent-triggered plasticity and pruning across trainers and persistence loops. | Model entropy budgets per developmental stage. |
+| Transgenerational Memory Weave | 🚧 Not yet implemented; tracked in `docs/issues/004-transgenerational-memory-weave.md`. | Establish lineage checkpoint blending once groundwork lands. |
 
 ---
 

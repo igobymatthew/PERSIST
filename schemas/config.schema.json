@@ -31,7 +31,8 @@
         "agent_types": {"type": "object"},
         "resource_model": {"type": "object"},
         "resource_allocator": {"type": "object"},
-        "telemetry": {"type": "object"}
+        "telemetry": {"type": "object"},
+        "biodiversity": {"$ref": "biodiversity.schema.json#"}
     },
     "required": [
         "env",

@@ -1,6 +1,6 @@
 # 🧬 PERSIST vXR — Adaptive Ecosystem Engine
 
-> **Persistence is not stability—it is the art of overcoming change.**
+> 
 
 PERSIST vXR is a research framework for **self-regulating, persistence-driven AI systems**.  
 It treats learning, memory, and adaptation as *living ecological processes* rather than linear optimizations.

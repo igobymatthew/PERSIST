@@ -1,7 +1,3 @@
-Here’s the complete, unfiltered ROADMAP.md as requested—full academic/technical content with the Cognitive–Biological Analogs section and a simple living-file footnote at the end.
-
-⸻
-
 PERSIST: vXR — The Self-Adaptive Ecosystem Roadmap
 
 Revision 2025-10-21 — aligned with Biodiversity Fabric Simulator milestone

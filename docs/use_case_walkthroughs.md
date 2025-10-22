@@ -144,6 +144,35 @@ These walkthroughs provide concrete, end-to-end exercises that demonstrate how t
    - Monitor `training.log` for `intrinsic_surprise` fields—values should drop as the world model learns.
    - Optional: compare with a latent-only run by toggling `world_model.type` back to `"latent"` while keeping the rest of the configuration identical.
 
+## Walkthrough 5: Run the Biodiversity Fabric Simulator
+
+**Goal:** Launch a multi-species GridLife scenario with ecological succession and biodiversity telemetry.
+
+1. **Inspect the biodiversity schema**
+   - Open `schemas/biodiversity.schema.json` to review the available archetype, succession, and telemetry fields. Each species defines its metabolism (energy decay, hazard tolerance) and population bounds for the simulator.
+
+2. **Configure species assignments**
+   - In `config.yaml`, verify the `biodiversity` block lists at least two species (e.g., `forager`, `sentinel`) along with succession phases.
+   - Optional: add an `assignments` array under `biodiversity` to control which agent receives each archetype.
+
+3. **Start the multi-agent run**
+   ```bash
+   python main.py
+   ```
+   - Choose **“Multi-agent experiment”**.
+   - Accept the default `MultiAgentGridLifeEnv`; it now loads species settings automatically.
+
+4. **Monitor biodiversity telemetry**
+   - When prompted, enable telemetry. The console prints the Prometheus port (default `8000`).
+   - Visit the endpoint and inspect the new gauges: `persist_species_richness`, `persist_trophic_stability`, and `persist_trophic_stability_rolling`.
+
+5. **Validate population stability**
+   - After a short run, open the training log to confirm `infos["__all__"]` entries report `species_richness`, `succession_phase_name`, and `population_stable` values.
+   - Run the smoke test to ensure the simulator maintains diversity without collapses:
+     ```bash
+     python -m pytest tests/test_biodiversity_simulator.py -q
+     ```
+
 ---
 
 These walkthroughs provide concrete paths from `python main.py` to actionable artifacts—checkpoints, telemetry, and reports—so beginners can build intuition for how PERSIST enforces persistence across increasingly demanding scenarios.

@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Biodiversity Fabric Simulator Schema",
+  "description": "Defines species archetypes, habitat succession, and telemetry knobs for the biodiversity simulator.",
+  "type": "object",
+  "properties": {
+    "species": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the species archetype."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Human-friendly species label."
+          },
+          "metabolism": {
+            "type": "object",
+            "description": "Metabolic parameters controlling internal state drift and resource usage.",
+            "properties": {
+              "energy_decay": {
+                "type": "number",
+                "minimum": 0.0,
+                "description": "Baseline energy decay applied each step."
+              },
+              "hazard_tolerance": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "Normalized tolerance for hazard exposure before integrity loss."
+              },
+              "resource_preference": {
+                "type": "string",
+                "description": "Primary resource channel this species prefers (e.g., 'food', 'coolant')."
+              }
+            },
+            "required": ["energy_decay"],
+            "additionalProperties": false
+          },
+          "maintenance": {
+            "type": "object",
+            "description": "Station usage preferences for the maintenance manager.",
+            "properties": {
+              "preferred_tasks": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Maintenance task IDs prioritized by the species."
+              }
+            },
+            "additionalProperties": false
+          },
+          "population": {
+            "type": "object",
+            "description": "Population-level safety requirements for the species.",
+            "properties": {
+              "min_count": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Minimum viable population for the species."
+              },
+              "max_count": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Carrying capacity for the species within the simulator."
+              },
+              "energy_floor": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "Minimum average energy that the species must maintain."
+              }
+            },
+            "additionalProperties": false
+          },
+          "reward_modifiers": {
+            "type": "object",
+            "description": "Species-specific reward shaping coefficients.",
+            "properties": {
+              "foraging_bonus": {"type": "number"},
+              "hazard_penalty": {"type": "number"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": ["id", "metabolism"],
+        "additionalProperties": false
+      }
+    },
+    "succession": {
+      "type": "object",
+      "description": "Ecological succession configuration controlling phased habitat changes.",
+      "properties": {
+        "interval": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of timesteps between succession phase evaluations."
+        },
+        "phases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"type": "string"},
+              "food_density": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "Probability of spawning food in each cell for the phase."
+              },
+              "hazard_rate": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "Probability of hazard presence in each cell for the phase."
+              },
+              "adversary_scale": {
+                "type": "number",
+                "minimum": 0.0,
+                "description": "Scaling factor for adversary or disturbance intensity."
+              }
+            },
+            "required": ["name"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["interval", "phases"],
+      "additionalProperties": false
+    },
+    "telemetry": {
+      "type": "object",
+      "description": "Telemetry aggregation knobs for biodiversity metrics.",
+      "properties": {
+        "stability_window": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Rolling window size for computing trophic stability."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["species"],
+  "additionalProperties": false
+}

@@ -493,6 +493,15 @@ class ComponentFactory:
         print("✅ LifeStageManager initialized.")
         return manager
 
+    def get_species_catalog(self):
+        biodiversity_cfg = self.config.get("biodiversity", {})
+        catalog = {entry["id"]: entry for entry in biodiversity_cfg.get("species", [])}
+        if catalog:
+            print(f"✅ Loaded {len(catalog)} species archetypes for BFS.")
+        else:
+            print("⚠️ No species archetypes found; biodiversity features disabled.")
+        return catalog
+
     def create_multi_agent_env(self):
         print("Initializing multi-agent environment...")
         env = MultiAgentGridLifeEnv(self.config)
@@ -602,6 +611,7 @@ class ComponentFactory:
 
             telemetry_manager = self.create_telemetry_manager()
             life_stage_manager = self.create_life_stage_manager()
+            species_catalog = self.get_species_catalog()
 
             components = {
                 "env": env,
@@ -611,6 +621,8 @@ class ComponentFactory:
                 "cbf_coupler": cbf_coupler,
                 "telemetry_manager": telemetry_manager,
                 "life_stage_manager": life_stage_manager,
+                "species_catalog": species_catalog,
+                "population_coordinator": getattr(env, "population_coordinator", None),
                 "device": self.device,
                 "config": self.config,
             }

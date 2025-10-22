@@ -72,6 +72,18 @@ class TelemetryManager:
             "Observed affect signals for the active life stage.",
             ["affect"],
         )
+        self.species_richness_gauge = Gauge(
+            "persist_species_richness",
+            "Number of unique species alive in the current episode.",
+        )
+        self.trophic_stability_gauge = Gauge(
+            "persist_trophic_stability",
+            "Instantaneous trophic stability reported by the biodiversity simulator.",
+        )
+        self.trophic_stability_rolling_gauge = Gauge(
+            "persist_trophic_stability_rolling",
+            "Rolling trophic stability over the configured observation window.",
+        )
 
         # Counters (value only goes up)
         self.episodes_total_counter = Counter(
@@ -84,6 +96,10 @@ class TelemetryManager:
         self.life_stage_transition_counter = Counter(
             "persist_life_stage_transitions_total",
             "Total number of life stage transitions observed.",
+        )
+        self.mutualism_counter = Counter(
+            "persist_mutualism_events_total",
+            "Total number of mutualism events recorded in biodiversity simulations.",
         )
 
         self.last_sps_update_time = time.time()
@@ -225,3 +241,25 @@ class TelemetryManager:
                 self.life_stage_affect_state_gauge.labels(affect=str(affect_name)).set(
                     numeric_value
                 )
+
+    def update_biodiversity(self, metrics):
+        """Update Prometheus metrics for biodiversity fabric simulations."""
+
+        if not self.enabled or metrics is None:
+            return
+
+        richness = metrics.get("species_richness")
+        if richness is not None:
+            self.species_richness_gauge.set(float(richness))
+
+        trophic_stability = metrics.get("trophic_stability")
+        if trophic_stability is not None:
+            self.trophic_stability_gauge.set(float(trophic_stability))
+
+        rolling = metrics.get("trophic_stability_rolling")
+        if rolling is not None:
+            self.trophic_stability_rolling_gauge.set(float(rolling))
+
+        mutualism_events = metrics.get("mutualism_events")
+        if mutualism_events:
+            self.mutualism_counter.inc(float(mutualism_events))

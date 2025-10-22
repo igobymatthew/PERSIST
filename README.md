@@ -56,6 +56,10 @@ After you make your selections, the final configuration will be displayed for co
 
 
 ### Progress Updates
+*   **2025-10-22T00:12:23+00:00**: Delivered the Biodiversity Fabric Simulator milestone.
+    *   Landed species archetype schemas, succession knobs, and telemetry wiring so BFS scenarios can be configured from the CLI and config files.
+    *   Upgraded multi-agent environments, population shielding, and Prometheus gauges to track richness, trophic stability, and mutualism dynamics.
+    *   Documented BFS workflows, configuration tips, and added a smoke test to keep multi-species runs stable.
 *   **2025-10-20T08:45:00-04:00**: Tightened stage-aware coordination between LifeStageManager and EEA agents.
     *   Wired `ExperimentCoordinator` and `MultiAgentTrainer` to inject life-stage providers, telemetry hooks, and FireEvent listeners so stage transitions immediately retune affect buffers and entropy seeding.
     *   Provisioned `LifeStageManager` for multi-agent builds so heuristic policies share developmental context with Prometheus metrics.

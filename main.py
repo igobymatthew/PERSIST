@@ -1,3 +1,4 @@
+import argparse
 import os
 import yaml
 import questionary
@@ -10,6 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 from rich import box
+from rich.table import Table
 
 from utils.factory import ComponentFactory
 from systems.coordinator import ExperimentCoordinator
@@ -21,6 +23,7 @@ from evolution.ga_core import GA, Individual
 from evolution.operators import uniform_crossover, gaussian_mutation
 from evolution.nsga2 import nsga2_select
 from components.life_stage import LifeStageManager
+from multiagent.lineage import LineageArchive
 
 
 def get_base_config():
@@ -33,6 +36,30 @@ Number = TypeVar("Number", int, float)
 
 
 console = Console()
+
+
+def _parse_args(argv=None):
+    original_gettext = getattr(argparse, "_", None)
+    if original_gettext is not None:
+        argparse._ = lambda message: message
+
+    try:
+        parser = argparse.ArgumentParser(description="PERSIST CLI entrypoint")
+        parser.add_argument(
+            "--lineage-report",
+            action="store_true",
+            help="Display the Transgenerational Memory Weave archive and exit.",
+        )
+        parser.add_argument(
+            "--lineage-limit",
+            type=int,
+            default=10,
+            help="Maximum number of lineage records to display in the report.",
+        )
+        return parser.parse_args(argv)
+    finally:
+        if original_gettext is not None:
+            argparse._ = original_gettext
 
 
 class StepProgressTracker:
@@ -189,6 +216,65 @@ def _render_life_stage_timeline(config: dict) -> None:
             box=box.ROUNDED,
         )
     )
+
+
+def _render_lineage_report(config: dict, limit: int) -> None:
+    lineage_cfg = config.get("lineage", {})
+    if not lineage_cfg.get("enabled", False):
+        console.print(
+            Panel(
+                "Lineage archive is disabled in the current configuration.",
+                title="Transgenerational Memory Weave",
+                border_style="yellow",
+            )
+        )
+        return
+
+    archive_dir = lineage_cfg.get("archive_dir") or os.path.join(
+        config.get("logging", {}).get("log_dir", "logs"),
+        "lineage",
+    )
+    archive = LineageArchive(
+        root=archive_dir, max_records=int(lineage_cfg.get("max_records", 64))
+    )
+
+    if not archive.has_records():
+        console.print(
+            Panel(
+                f"No lineage records found in [cyan]{archive.archive_path()}[/]",
+                title="Transgenerational Memory Weave",
+                border_style="yellow",
+            )
+        )
+        return
+
+    rows = archive.build_report(limit=limit)
+    table = Table(title="Transgenerational Memory Weave Archive")
+    table.add_column("Record ID", style="cyan")
+    table.add_column("Created", style="green")
+    table.add_column("Event", style="magenta")
+    table.add_column("Stage", style="white")
+    table.add_column("Species", style="white")
+    table.add_column("Episode", justify="right")
+    table.add_column("Steps", justify="right")
+    table.add_column("Score", justify="right")
+
+    for row in rows:
+        table.add_row(
+            row.get("record_id", "-"),
+            row.get("created_at", "-"),
+            row.get("event", "-"),
+            row.get("stage", "-") or "-",
+            row.get("species", "-") or "-",
+            str(row.get("episode", "-")),
+            str(row.get("total_steps", "-")),
+            "-" if row.get("score") is None else f"{row['score']}",
+        )
+
+    console.print(
+        Panel.fit(f"Archive path: {archive.archive_path()}", border_style="cyan")
+    )
+    console.print(table)
 
 
 def _render_top_level_summary(config: dict) -> None:
@@ -715,16 +801,22 @@ def run_experiment(config):
         raise
 
 
-def main():
+def main(argv=None):
     """
     Main entry point with an interactive CLI.
     """
+    args = _parse_args(argv)
     print("Welcome to the PERSIST Framework!")
 
     if not os.path.exists("config.yaml"):
         print(
             "Error: `config.yaml` not found. Please ensure it exists in the root directory."
         )
+        return
+
+    if args.lineage_report:
+        config = get_base_config()
+        _render_lineage_report(config, limit=max(1, args.lineage_limit))
         return
 
     choice = questionary.select(

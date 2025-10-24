@@ -56,6 +56,12 @@ After you make your selections, the final configuration will be displayed for co
 
 
 ### Progress Updates
+*   **2025-10-26T15:45:00+00:00**: Restored baseline configurations after the lineage rollout.
+    *   Added a default biodiversity archetype and CLI translation guardrails so smoke tests and lightweight configs can run the multi-agent simulator without bespoke species files.
+    *   Ensured automated suites can mock `config.yaml` loads again, keeping the interactive CLI and regression coverage stable for contributors.
+*   **2025-10-26T09:30:00+00:00**: Implemented the Transgenerational Memory Weave lineage stack.
+    *   Added lineage archiving, Fisher-masked blending, and respawn initialization so new agents inherit policy, viability, and safety priors across stages.
+    *   Introduced lineage-aware CLI reporting, configuration knobs, and documentation so experimenters can audit and tune cross-generational memory.
 *   **2025-10-25T18:00:00+00:00**: Documented an implementation timeline across roadmap and pitch materials.
     *   Annotated `docs/summary.md`, `docs/roadmap.md`, `docs/growth_mimetic_technologies.md`, and `docs/roadmap102125.md` with commit-stamped checkpoints so contributors can see which growth-mimetic features already landed and what remains.
     *   Clarified that the CLI renders life-stage previews automatically (no `--preview-growth` flag) and highlighted outstanding telemetry storytelling work for EEA++.

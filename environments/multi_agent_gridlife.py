@@ -24,9 +24,15 @@ class MultiAgentGridLifeEnv(gym.Env):
             entry["id"]: entry for entry in self.biodiversity_cfg.get("species", [])
         }
         if not self.species_catalog:
-            raise ValueError(
-                "Biodiversity Fabric Simulator requires at least one species archetype."
-            )
+            default_species = {
+                "id": "baseline",
+                "name": "Baseline Pioneer",
+                "reward_modifiers": {"foraging_bonus": 1.0, "hazard_penalty": 0.2},
+                "metabolism": {"energy_decay": 0.01, "hazard_tolerance": 0.3},
+                "population": {"min_count": 0},
+            }
+            self.species_catalog = {default_species["id"]: default_species}
+            self.biodiversity_cfg.setdefault("species", [default_species])
 
         assignment_cycle = self.biodiversity_cfg.get("assignments")
         if assignment_cycle is None:
@@ -42,6 +48,11 @@ class MultiAgentGridLifeEnv(gym.Env):
                     f"Unknown species id '{species_id}' for agent assignment"
                 )
             self.agent_species[agent_id] = species_id
+
+        anchor_species = self.species_catalog[self.agent_species[self.agents[0]]]
+        self.energy_decay = float(
+            anchor_species.get("metabolism", {}).get("energy_decay", 0.01)
+        )
 
         baseline_homeostasis = np.array(
             config["agent_types"]["default"]["homeostasis"]["mu"], dtype=np.float32

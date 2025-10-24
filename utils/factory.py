@@ -1,3 +1,4 @@
+import os
 import re
 
 import numpy as np
@@ -16,6 +17,7 @@ from buffers.replay_ma import ReplayMA
 from buffers.near_boundary import NearBoundaryBuffer, NearBoundaryConfig
 from multiagent.resource_allocator import ResourceAllocator
 from multiagent.cbf_coupler import CBFCoupler
+from multiagent.lineage import LineageArchive, LineageBlender
 from components.latent_world_model import LatentWorldModel
 from components.dreamer_world_model import DreamerWorldModel
 from components.internal_model import InternalModel
@@ -493,6 +495,29 @@ class ComponentFactory:
         print("✅ LifeStageManager initialized.")
         return manager
 
+    def create_lineage_archive(self):
+        lineage_cfg = self.config.get("lineage", {})
+        if not lineage_cfg.get("enabled", False):
+            return None
+
+        archive_dir = lineage_cfg.get("archive_dir") or os.path.join(
+            self.config.get("logging", {}).get("log_dir", "logs"),
+            "lineage",
+        )
+        max_records = int(lineage_cfg.get("max_records", 64))
+        archive = LineageArchive(root=archive_dir, max_records=max_records)
+        print(f"✅ Lineage archive ready at {archive.archive_path()}.")
+        return archive
+
+    def create_lineage_blender(self):
+        lineage_cfg = self.config.get("lineage", {})
+        if not lineage_cfg.get("enabled", False):
+            return None
+
+        blender = LineageBlender(device=self.device)
+        print("✅ Lineage blender initialized.")
+        return blender
+
     def get_species_catalog(self):
         biodiversity_cfg = self.config.get("biodiversity", {})
         catalog = {entry["id"]: entry for entry in biodiversity_cfg.get("species", [])}
@@ -601,6 +626,9 @@ class ComponentFactory:
     def get_all_components(self):
         is_multi_agent = self.config.get("multiagent", {}).get("enabled", False)
 
+        lineage_archive = self.create_lineage_archive()
+        lineage_blender = self.create_lineage_blender()
+
         if is_multi_agent:
             print("\n--- Building components for MULTI-AGENT training ---")
             env = self.create_multi_agent_env()
@@ -625,6 +653,9 @@ class ComponentFactory:
                 "population_coordinator": getattr(env, "population_coordinator", None),
                 "device": self.device,
                 "config": self.config,
+                "lineage_archive": lineage_archive,
+                "lineage_blender": lineage_blender,
+                "lineage_config": self.config.get("lineage", {}),
             }
         else:
             print("\n--- Building components for SINGLE-AGENT training ---")
@@ -699,6 +730,9 @@ class ComponentFactory:
                 "safety_reporter": safety_reporter,
                 "telemetry_manager": telemetry_manager,
                 "life_stage_manager": life_stage_manager,
+                "lineage_archive": lineage_archive,
+                "lineage_blender": lineage_blender,
+                "lineage_config": self.config.get("lineage", {}),
             }
 
         return components

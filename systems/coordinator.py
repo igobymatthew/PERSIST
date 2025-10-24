@@ -1,10 +1,19 @@
 import inspect
+from typing import Dict, Optional
 
 import torch
 import numpy as np
 
 from components.fire_event import FireEvent
 from utils.trainer_utils import log_episode_data, CurriculumScheduler
+from multiagent.lineage import (
+    BlendConfig,
+    LineageArchive,
+    LineageBlender,
+    LineageMetadata,
+    estimate_actor_fisher,
+    estimate_viability_fisher,
+)
 
 
 class ExperimentCoordinator:
@@ -51,6 +60,18 @@ class ExperimentCoordinator:
             print("ℹ️ Curriculum disabled, using fixed parameters.")
 
         self._configure_life_stage_observers()
+
+        self.lineage_archive: Optional[LineageArchive] = getattr(
+            self, "lineage_archive", None
+        )
+        self.lineage_blender: Optional[LineageBlender] = getattr(
+            self, "lineage_blender", None
+        )
+        self.lineage_config: Dict[str, object] = (
+            getattr(self, "lineage_config", {}) or {}
+        )
+        self._blend_config = self._build_lineage_blend_config()
+        self._lineage_species = self.lineage_config.get("species_id")
 
         print("✅ Experiment Coordinator initialized.")
 
@@ -135,6 +156,8 @@ class ExperimentCoordinator:
                     self.env.update_constraints(stage_reset.constraints_to_apply)
                     self._announce_life_stage_transition(stage_reset, initial=True)
                 self._update_life_stage_metrics(0)
+
+            self._initialize_lineage_for_episode(episode)
 
             true_internal_state = (
                 external_obs[-self.env.internal_dim :]
@@ -428,6 +451,35 @@ class ExperimentCoordinator:
                 info,
             )
 
+            final_stage_name = None
+            final_stage_index = None
+            metrics_dict: Dict[str, object] = {}
+            manager = getattr(self, "life_stage_manager", None)
+            if manager is not None:
+                metrics = manager.metrics(ep_len)
+                if metrics is not None:
+                    final_stage_name = metrics.name
+                    final_stage_index = metrics.index
+                    metrics_dict = metrics.as_dict()
+                    affect_targets = metrics_dict.get("affect_targets") or {}
+                    metrics_dict["affect_targets"] = {
+                        key: list(value) for key, value in affect_targets.items()
+                    }
+
+            termination_reason = (
+                "budget_exhausted"
+                if info.get("budget_exhausted")
+                else ("violation" if info.get("violation") else "episode_end")
+            )
+            self._archive_lineage_snapshot(
+                event="death" if info.get("violation") else "lifespan_end",
+                stage_name=final_stage_name,
+                stage_index=final_stage_index,
+                reason=termination_reason,
+                episode=episode,
+                metrics=metrics_dict,
+            )
+
         print("\n--- Training Finished ---")
 
     def _save_checkpoint(self, episode):
@@ -488,6 +540,23 @@ class ExperimentCoordinator:
             print(f"🍼 Life stage initialized → {stage_name}")
             return
 
+        previous_stage = (
+            transition.previous_stage.name if transition.previous_stage else None
+        )
+        previous_index = (
+            transition.index - 1
+            if transition.previous_stage and transition.index is not None
+            else None
+        )
+        if previous_stage is not None:
+            self._archive_lineage_snapshot(
+                event="stage_complete",
+                stage_name=previous_stage,
+                stage_index=previous_index,
+                reason="life_stage_transition",
+                metrics={"stage_duration": transition.previous_stage.duration},
+            )
+
         print(f"🧬 Life stage transition → {stage_name} at step {self.total_steps}")
         actor_model = getattr(self.agent, "actor", None)
         if actor_model is None and hasattr(self.agent, "policy"):
@@ -498,3 +567,191 @@ class ExperimentCoordinator:
             if summary is not None:
                 fire_context["stage"] = summary
             FireEvent.apply(actor_model, context=fire_context)
+
+    # ------------------------------------------------------------------
+    # Lineage helpers
+    # ------------------------------------------------------------------
+    def _build_lineage_blend_config(self) -> BlendConfig:
+        cfg = self.lineage_config or {}
+        return BlendConfig(
+            alpha=float(cfg.get("blend_alpha", 0.45)),
+            lora_rank=int(cfg.get("lora_rank", 8)),
+            max_ancestors=int(cfg.get("max_ancestors", 3)),
+        )
+
+    def _lineage_enabled(self) -> bool:
+        return bool(
+            self.lineage_archive
+            and self.lineage_blender
+            and self.lineage_config.get("enabled", False)
+        )
+
+    def _initialize_lineage_for_episode(self, episode: int) -> None:
+        if not self._lineage_enabled():
+            return
+        if not self.lineage_archive or not self.lineage_archive.has_records():
+            return
+
+        manager = getattr(self, "life_stage_manager", None)
+        stage_name = manager.current_stage_name() if manager else None
+        limit = int(
+            self.lineage_config.get("max_ancestors", self._blend_config.max_ancestors)
+        )
+        ancestors = list(
+            self.lineage_archive.iter_records(
+                species=self._lineage_species,
+                stage=stage_name,
+                limit=limit,
+            )
+        )
+        if not ancestors:
+            ancestors = list(
+                self.lineage_archive.iter_records(
+                    species=self._lineage_species,
+                    limit=limit,
+                )
+            )
+        if not ancestors:
+            return
+
+        self.lineage_blender.blend_agent(
+            agent=self.agent,
+            viability_model=getattr(self, "viability_approximator", None),
+            safety_network=getattr(self, "safety_network", None),
+            ancestors=ancestors,
+            config=self._blend_config,
+        )
+
+    def _archive_lineage_snapshot(
+        self,
+        *,
+        event: str,
+        stage_name: Optional[str],
+        stage_index: Optional[int] = None,
+        reason: Optional[str] = None,
+        episode: Optional[int] = None,
+        metrics: Optional[Dict[str, object]] = None,
+    ) -> None:
+        if not self._lineage_enabled():
+            return
+        if not self.lineage_archive:
+            return
+
+        fisher = self._estimate_fisher_masks()
+        metadata = LineageMetadata(
+            species=self._lineage_species,
+            stage=stage_name,
+            stage_index=stage_index,
+            event=event,
+            reason=reason,
+            episode=episode,
+            total_steps=self.total_steps,
+            environment_seed=self.config.get("seed"),
+            metrics=metrics or {},
+        )
+        safety_state = (
+            self.safety_network.state_dict()
+            if getattr(self, "safety_network", None)
+            else None
+        )
+        affect_state = self._export_affect_state()
+        try:
+            self.lineage_archive.record_snapshot(
+                metadata=metadata,
+                policy_state=(
+                    self.agent.get_state() if hasattr(self.agent, "get_state") else None
+                ),
+                viability_state=(
+                    self.viability_approximator.state_dict()
+                    if getattr(self, "viability_approximator", None)
+                    else None
+                ),
+                safety_state=safety_state,
+                affect_state=affect_state,
+                fisher_mask=fisher if fisher else None,
+            )
+        except (
+            Exception
+        ) as exc:  # pragma: no cover - archival should not interrupt training
+            print(f"⚠️ Failed to archive lineage snapshot: {exc}")
+
+    def _export_affect_state(self) -> Optional[Dict[str, torch.Tensor]]:
+        buffer = getattr(self.agent, "affect_buffer", None)
+        if buffer is None:
+            return None
+        if hasattr(buffer, "state_dict"):
+            state = buffer.state_dict()
+        elif hasattr(buffer, "serialize"):
+            state = buffer.serialize()
+        elif hasattr(buffer, "__getstate__"):
+            state = buffer.__getstate__()
+        else:
+            return None
+        if isinstance(state, dict):
+            processed: Dict[str, object] = {}
+            for key, value in state.items():
+                if isinstance(value, torch.Tensor):
+                    processed[key] = value.detach().cpu()
+                else:
+                    processed[key] = value
+            return processed
+        return None
+
+    def _resolve_actor_model(self) -> Optional[torch.nn.Module]:
+        actor = getattr(self.agent, "actor", None)
+        if actor is not None:
+            return actor
+        policy = getattr(self.agent, "policy", None)
+        if policy is not None and hasattr(policy, "actor"):
+            return policy.actor
+        return None
+
+    def _estimate_fisher_masks(self) -> Dict[str, torch.Tensor]:
+        if not self.lineage_config.get("estimate_fisher", True):
+            return {}
+        if not hasattr(self, "replay_buffer") or len(self.replay_buffer) == 0:
+            return {}
+
+        min_samples = int(self.lineage_config.get("fisher_min_samples", 256))
+        if len(self.replay_buffer) < min_samples:
+            return {}
+
+        batch_size = int(self.lineage_config.get("fisher_batch_size", 64))
+        num_batches = int(self.lineage_config.get("fisher_batches", 4))
+
+        actor_batches = []
+        viability_batches = []
+        for _ in range(num_batches):
+            batch = self.replay_buffer.sample_batch(batch_size=batch_size)
+            obs = batch.get("obs")
+            if obs is not None:
+                actor_batches.append(obs)
+            internal = batch.get("internal_state")
+            labels = batch.get("viability_label")
+            if internal is not None and labels is not None:
+                viability_batches.append((internal, labels.unsqueeze(-1)))
+
+        fisher: Dict[str, torch.Tensor] = {}
+        actor = self._resolve_actor_model()
+        if actor is not None and actor_batches:
+            try:
+                actor_fisher = estimate_actor_fisher(
+                    actor, actor_batches, device=self.device
+                )
+                fisher.update(
+                    {f"actor.{name}": tensor for name, tensor in actor_fisher.items()}
+                )
+            except Exception as exc:  # pragma: no cover - diagnostics only
+                print(f"⚠️ Actor Fisher estimation failed: {exc}")
+
+        viability_model = getattr(self, "viability_approximator", None)
+        if viability_model is not None and viability_batches:
+            try:
+                viability_fisher = estimate_viability_fisher(
+                    viability_model, viability_batches, device=self.device
+                )
+                fisher.update(viability_fisher)
+            except Exception as exc:  # pragma: no cover
+                print(f"⚠️ Viability Fisher estimation failed: {exc}")
+
+        return {key: value.cpu() for key, value in fisher.items()}

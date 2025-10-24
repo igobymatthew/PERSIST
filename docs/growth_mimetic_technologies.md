@@ -36,7 +36,7 @@ PERSIST already treats survival as a synthesis of homeostasis, viability shieldi
 - **Evolutionary replay:** After each life stage or death event, archive distilled policies and viability approximators. Genetic operators mutate these archives while respecting Fisher-informed masks so important memories persist.
 - **Heritable schemas:** When a new agent spawns, initialize it with stage-specific priors drawn from ancestors, blending imitation learning with shield amortization to reduce unsafe exploration.
 - **Long-horizon evaluation:** Use benchmark suites to score lineage resilience, focusing on recovery rate after fire events and biodiversity impacts of inherited behaviors.
-  - **Status:** Pending. Captured in `docs/issues/004-transgenerational-memory-weave.md`.
+  - **Status:** ✅ Implemented via `multiagent/lineage/` utilities, lineage-enabled coordinator hooks, and CLI reporting in `main.py`. Benchmarks and devlog notes cover recovery/unsafe exploration deltas; follow-up tuning remains in `docs/issues/004-transgenerational-memory-weave.md`.
 
 ## 6. Next Steps
 1. Prototype age-indexed viability schemas and integrate them into the CLI so users can configure developmental arcs without manual YAML edits.

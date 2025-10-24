@@ -1,0 +1,27 @@
+# Scenario: Transgenerational Memory Weave Recovery
+# Measures how quickly lineage-enabled agents regain performance
+# after a fire-triggered reset and whether inherited shields reduce
+# unsafe exploration relative to a fresh initialization.
+
+setup:
+  description: "Compare baseline vs. TMW-enabled recovery after FIRE events"
+  runs:
+    baseline:
+      lineage:
+        enabled: false
+    tmw_enabled:
+      lineage:
+        enabled: true
+        blend_alpha: 0.55
+        max_ancestors: 3
+        fisher_batches: 6
+  metrics:
+    - name: "reward_recovery_steps"
+      description: "Steps required to return to 90% of pre-fire reward"
+    - name: "unsafe_exploration_rate"
+      description: "Percentage of steps where the shield intervened"
+
+notes:
+  - "Run each configuration for 5 seeds to average recovery dynamics."
+  - "Inspect lineage manifests via `python main.py --lineage-report --lineage-limit 5`."
+  - "Expect ≥15% improvement in recovery speed with TMW enabled."

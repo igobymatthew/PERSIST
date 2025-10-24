@@ -200,6 +200,19 @@ safety_network:
   hidden_dim: 128
   lr: 0.0001
 
+lineage:
+  enabled: true
+  species_id: "forager"
+  archive_dir: "logs/lineage"
+  max_records: 128
+  max_ancestors: 3
+  blend_alpha: 0.5
+  lora_rank: 8
+  estimate_fisher: true
+  fisher_min_samples: 256
+  fisher_batch_size: 64
+  fisher_batches: 4
+
 demonstrations:
   filepath: "demonstrations/expert_demonstrations.npz"
 

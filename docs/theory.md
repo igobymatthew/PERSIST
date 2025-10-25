@@ -1,5 +1,16 @@
 PERSIST: A Persistence-Centric Agent Framework
 
+## Philosophical foundations
+
+| Domain | Concept | Parallel in Persistence |
+| --- | --- | --- |
+| **Biology** | Autopoiesis (Maturana & Varela) | Systems maintain themselves through internal regeneration |
+| **Cybernetics** | Homeostatic feedback loops | Error correction as persistence strategy |
+| **Reinforcement Learning** | Reward ≈ survival signal | Long-term viability replaces immediate reward |
+| **Thermodynamics** | Entropy management | Fire as controlled entropy reduction |
+| **Philosophy of Mind** | Process ontology | “Being” is replaced by “becoming” — existence is cyclical |
+| **Mythology** | Phoenix cycle | Destruction and rebirth as persistence through transformation |
+
 Core concepts State s_t = [o_t, x_t]: external observation o_t + internal/homeostatic variables x_t (e.g., energy, temperature, integrity).
 Dynamics x_{t+1} = f_\theta(x_t, a_t, o_t): learned or known internal-state transition.
 

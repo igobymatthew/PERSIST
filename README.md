@@ -56,6 +56,9 @@ After you make your selections, the final configuration will be displayed for co
 
 
 ### Progress Updates
+*   **2025-10-27T09:45:00+00:00**: Added an agent integration smoke suite.
+    *   Published `python -m agents.tests.integration_check` so contributors can run curated persistence, EEA, and multi-agent checks without hunting for the right pytest targets.
+    *   Ensured the module loads under the documented namespace, keeping pre-commit guidance in sync with the repository layout.
 *   **2025-10-27T02:15:00+00:00**: Hardened lineage utilities for multi-agent runs.
     *   Gated coordinator lineage blending and fire events when no single-agent controller is present so ComponentFactory multi-agent experiments avoid startup crashes.
     *   Taught checkpointing and affect export hooks to skip gracefully without a standalone agent, keeping lineage archival and recovery compatible across trainers.

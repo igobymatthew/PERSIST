@@ -217,16 +217,20 @@ class ExperimentCoordinator:
                 )
 
                 if info.get("fire_triggered"):
-                    actor_model = getattr(self.agent, "actor", None)
-                    if actor_model is None and hasattr(self.agent, "policy"):
-                        actor_model = getattr(self.agent.policy, "actor", None)
+                    agent = getattr(self, "agent", None)
+                    actor_model = None
+                    if agent is not None:
+                        actor_model = getattr(agent, "actor", None)
+                        if actor_model is None and hasattr(agent, "policy"):
+                            actor_model = getattr(agent.policy, "actor", None)
                     fire_context = {"reason": "environment_signal"}
                     manager = getattr(self, "life_stage_manager", None)
                     if manager is not None:
                         summary = manager.current_stage_summary()
                         if summary is not None:
                             fire_context["stage"] = summary
-                    FireEvent.apply(actor_model, context=fire_context)
+                    if actor_model is not None:
+                        FireEvent.apply(actor_model, context=fire_context)
                     if self.continual_learning_manager and self.rehearsal_buffer:
                         self.continual_learning_manager.consolidate(
                             self.rehearsal_buffer
@@ -488,12 +492,16 @@ class ExperimentCoordinator:
         if not self.persistence_manager:
             return
 
+        agent = getattr(self, "agent", None)
         state = {
             "episode": episode,
             "total_steps": self.total_steps,
-            "agent_state_dict": self.agent.get_state(),
-            "optimizer_state_dict": self.agent.get_optimizer_state(),
         }
+        if agent is not None:
+            if hasattr(agent, "get_state"):
+                state["agent_state_dict"] = agent.get_state()
+            if hasattr(agent, "get_optimizer_state"):
+                state["optimizer_state_dict"] = agent.get_optimizer_state()
         self.persistence_manager.save_checkpoint(state, self.total_steps)
 
     def _load_checkpoint(self):
@@ -505,9 +513,15 @@ class ExperimentCoordinator:
         if state:
             self.start_episode = state.get("episode", 0) + 1
             self.total_steps = state.get("total_steps", 0)
-            self.agent.load_state(state.get("agent_state_dict"))
-            if "optimizer_state_dict" in state:
-                self.agent.load_optimizer_state(state["optimizer_state_dict"])
+            agent = getattr(self, "agent", None)
+            if agent is not None:
+                agent_state = state.get("agent_state_dict")
+                if agent_state is not None and hasattr(agent, "load_state"):
+                    agent.load_state(agent_state)
+                if "optimizer_state_dict" in state and hasattr(
+                    agent, "load_optimizer_state"
+                ):
+                    agent.load_optimizer_state(state["optimizer_state_dict"])
             print(
                 f"--- Resumed from checkpoint at episode {self.start_episode}, step {self.total_steps} ---"
             )
@@ -558,9 +572,13 @@ class ExperimentCoordinator:
             )
 
         print(f"🧬 Life stage transition → {stage_name} at step {self.total_steps}")
-        actor_model = getattr(self.agent, "actor", None)
-        if actor_model is None and hasattr(self.agent, "policy"):
-            actor_model = getattr(self.agent.policy, "actor", None)
+        agent = getattr(self, "agent", None)
+        if agent is None:
+            return
+
+        actor_model = getattr(agent, "actor", None)
+        if actor_model is None and hasattr(agent, "policy"):
+            actor_model = getattr(agent.policy, "actor", None)
         if actor_model is not None:
             fire_context = {"reason": "life_stage_transition"}
             summary = manager.current_stage_summary()
@@ -614,8 +632,12 @@ class ExperimentCoordinator:
         if not ancestors:
             return
 
+        agent = getattr(self, "agent", None)
+        if agent is None:
+            return
+
         self.lineage_blender.blend_agent(
-            agent=self.agent,
+            agent=agent,
             viability_model=getattr(self, "viability_approximator", None),
             safety_network=getattr(self, "safety_network", None),
             ancestors=ancestors,
@@ -654,12 +676,13 @@ class ExperimentCoordinator:
             if getattr(self, "safety_network", None)
             else None
         )
-        affect_state = self._export_affect_state()
+        agent = getattr(self, "agent", None)
+        affect_state = self._export_affect_state(agent)
         try:
             self.lineage_archive.record_snapshot(
                 metadata=metadata,
                 policy_state=(
-                    self.agent.get_state() if hasattr(self.agent, "get_state") else None
+                    agent.get_state() if agent and hasattr(agent, "get_state") else None
                 ),
                 viability_state=(
                     self.viability_approximator.state_dict()
@@ -675,8 +698,14 @@ class ExperimentCoordinator:
         ) as exc:  # pragma: no cover - archival should not interrupt training
             print(f"⚠️ Failed to archive lineage snapshot: {exc}")
 
-    def _export_affect_state(self) -> Optional[Dict[str, torch.Tensor]]:
-        buffer = getattr(self.agent, "affect_buffer", None)
+    def _export_affect_state(
+        self, agent: Optional[object] = None
+    ) -> Optional[Dict[str, torch.Tensor]]:
+        agent = agent or getattr(self, "agent", None)
+        if agent is None:
+            return None
+
+        buffer = getattr(agent, "affect_buffer", None)
         if buffer is None:
             return None
         if hasattr(buffer, "state_dict"):
@@ -698,10 +727,14 @@ class ExperimentCoordinator:
         return None
 
     def _resolve_actor_model(self) -> Optional[torch.nn.Module]:
-        actor = getattr(self.agent, "actor", None)
+        agent = getattr(self, "agent", None)
+        if agent is None:
+            return None
+
+        actor = getattr(agent, "actor", None)
         if actor is not None:
             return actor
-        policy = getattr(self.agent, "policy", None)
+        policy = getattr(agent, "policy", None)
         if policy is not None and hasattr(policy, "actor"):
             return policy.actor
         return None

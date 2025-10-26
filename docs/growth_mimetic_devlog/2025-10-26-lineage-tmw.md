@@ -17,6 +17,6 @@
 - Safety network inheritance stabilized amortized shielding within two episodes, avoiding the cold-start spike observed in prior checkpoints.
 
 ## Next Steps
-- Extend benchmarking harnesses to sweep different LoRA ranks and ancestor counts, confirming the observed recovery gains across seeds.
-- Integrate multi-agent lineage selection heuristics so species-specific policies respect biodiversity constraints when respawning.
-- Surface lineage deltas in telemetry dashboards for richer, live experiment diagnostics.
+- ✅ Extend benchmarking harnesses to sweep different LoRA ranks and ancestor counts, confirming the observed recovery gains across seeds.
+- ✅ Integrate multi-agent lineage selection heuristics so species-specific policies respect biodiversity constraints when respawning.
+- ✅ Surface lineage deltas in telemetry dashboards for richer, live experiment diagnostics.

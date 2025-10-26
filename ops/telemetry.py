@@ -1,5 +1,7 @@
 import time
-from prometheus_client import start_http_server, Gauge, Counter
+from typing import Mapping, Optional
+
+from prometheus_client import Counter, Gauge, start_http_server
 
 
 class TelemetryManager:
@@ -83,6 +85,27 @@ class TelemetryManager:
         self.trophic_stability_rolling_gauge = Gauge(
             "persist_trophic_stability_rolling",
             "Rolling trophic stability over the configured observation window.",
+        )
+
+        self.lineage_ancestors_gauge = Gauge(
+            "persist_lineage_ancestors",
+            "Number of lineage ancestors blended for the target.",
+            ["target"],
+        )
+        self.lineage_alpha_gauge = Gauge(
+            "persist_lineage_alpha",
+            "Lineage blend alpha applied to the target.",
+            ["target"],
+        )
+        self.lineage_lora_rank_gauge = Gauge(
+            "persist_lineage_lora_rank",
+            "LoRA rank used during lineage blending.",
+            ["target"],
+        )
+        self.lineage_delta_norm_gauge = Gauge(
+            "persist_lineage_delta_norm",
+            "Norm of the lineage delta applied to each component.",
+            ["target", "component"],
         )
 
         # Counters (value only goes up)
@@ -263,3 +286,37 @@ class TelemetryManager:
         mutualism_events = metrics.get("mutualism_events")
         if mutualism_events:
             self.mutualism_counter.inc(float(mutualism_events))
+
+    def update_lineage(
+        self,
+        target: str,
+        metrics: Mapping[str, float],
+        *,
+        species_id: Optional[str] = None,
+    ) -> None:
+        """Update telemetry gauges describing lineage blending activity."""
+
+        if not self.enabled:
+            return
+
+        label = target if species_id is None else f"{target}[{species_id}]"
+
+        ancestors = metrics.get("ancestors")
+        if ancestors is not None:
+            self.lineage_ancestors_gauge.labels(target=label).set(float(ancestors))
+
+        alpha = metrics.get("alpha")
+        if alpha is not None:
+            self.lineage_alpha_gauge.labels(target=label).set(float(alpha))
+
+        lora_rank = metrics.get("lora_rank")
+        if lora_rank is not None:
+            self.lineage_lora_rank_gauge.labels(target=label).set(float(lora_rank))
+
+        for key, value in metrics.items():
+            if not key.endswith("_delta_norm"):
+                continue
+            component = key[: -len("_delta_norm")] or "unknown"
+            self.lineage_delta_norm_gauge.labels(target=label, component=component).set(
+                float(value)
+            )

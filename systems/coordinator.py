@@ -1,5 +1,6 @@
+import copy
 import inspect
-from typing import Dict, Optional
+from typing import Dict, List, Mapping, Optional
 
 import torch
 import numpy as np
@@ -8,9 +9,11 @@ from components.fire_event import FireEvent
 from utils.trainer_utils import log_episode_data, CurriculumScheduler
 from multiagent.lineage import (
     BlendConfig,
+    BlendOutcome,
     LineageArchive,
     LineageBlender,
     LineageMetadata,
+    LineageRecord,
     estimate_actor_fisher,
     estimate_viability_fisher,
 )
@@ -470,6 +473,22 @@ class ExperimentCoordinator:
                         key: list(value) for key, value in affect_targets.items()
                     }
 
+            population_snapshot = getattr(self.env, "population_snapshot", None)
+            if population_snapshot:
+                metrics_dict["population_snapshot"] = copy.deepcopy(population_snapshot)
+
+            global_info = info.get("__all__") if isinstance(info, Mapping) else None
+            if isinstance(global_info, Mapping):
+                metrics_dict["population_metrics"] = {
+                    "species_richness": global_info.get("species_richness"),
+                    "trophic_stability": global_info.get("trophic_stability"),
+                    "trophic_stability_rolling": global_info.get(
+                        "trophic_stability_rolling"
+                    ),
+                    "mutualism_events": global_info.get("mutualism_events"),
+                    "population_stable": global_info.get("population_stable"),
+                }
+
             termination_reason = (
                 "budget_exhausted"
                 if info.get("budget_exhausted")
@@ -597,12 +616,135 @@ class ExperimentCoordinator:
             max_ancestors=int(cfg.get("max_ancestors", 3)),
         )
 
+    def _resolve_blend_config(self, species_id: Optional[str]) -> BlendConfig:
+        if not species_id:
+            return self._blend_config
+        overrides = self.lineage_config.get("species_overrides", {})
+        if not isinstance(overrides, Mapping):
+            return self._blend_config
+        species_override = overrides.get(species_id)
+        if not isinstance(species_override, Mapping):
+            return self._blend_config
+        return BlendConfig(
+            alpha=float(species_override.get("blend_alpha", self._blend_config.alpha)),
+            lora_rank=int(
+                species_override.get("lora_rank", self._blend_config.lora_rank)
+            ),
+            max_ancestors=int(
+                species_override.get("max_ancestors", self._blend_config.max_ancestors)
+            ),
+        )
+
     def _lineage_enabled(self) -> bool:
         return bool(
             self.lineage_archive
             and self.lineage_blender
             and self.lineage_config.get("enabled", False)
         )
+
+    def _resolve_policy_species(self, policy_name: str) -> Optional[str]:
+        mapping = self.lineage_config.get("policy_species", {})
+        if isinstance(mapping, Mapping):
+            for key in (policy_name, f"policy:{policy_name}"):
+                value = mapping.get(key)
+                if isinstance(value, str):
+                    return value
+        species_catalog = getattr(self, "species_catalog", None)
+        if isinstance(species_catalog, Mapping) and policy_name in species_catalog:
+            return policy_name
+        return self._lineage_species
+
+    def _select_lineage_ancestors(
+        self,
+        *,
+        species_id: Optional[str],
+        stage_name: Optional[str],
+        limit: int,
+    ) -> List[LineageRecord]:
+        archive = self.lineage_archive
+        species = species_id or self._lineage_species
+        if not archive or not species:
+            return []
+
+        fetch_limit = max(limit * 2, limit)
+        candidates = list(
+            archive.iter_records(species=species, stage=stage_name, limit=fetch_limit)
+        )
+        if not candidates and stage_name:
+            candidates = list(archive.iter_records(species=species, limit=fetch_limit))
+
+        if not candidates:
+            return []
+
+        filtered = self._filter_lineage_by_biodiversity(candidates, species)
+        if filtered:
+            candidates = filtered
+
+        return candidates[:limit]
+
+    def _filter_lineage_by_biodiversity(
+        self,
+        records: List[LineageRecord],
+        species_id: str,
+    ) -> List[LineageRecord]:
+        if not self._requires_biodiversity_screen():
+            return records
+
+        filtered = [
+            record
+            for record in records
+            if self._record_respects_biodiversity(record, species_id)
+        ]
+        return filtered
+
+    def _requires_biodiversity_screen(self) -> bool:
+        return bool(
+            getattr(self, "population_coordinator", None)
+            and isinstance(getattr(self, "species_catalog", None), Mapping)
+        )
+
+    def _record_respects_biodiversity(self, record, species_id: str) -> bool:
+        metrics = getattr(record.metadata, "metrics", {}) or {}
+        population_metrics = metrics.get("population_metrics") or {}
+        if isinstance(population_metrics, Mapping):
+            stable_flag = population_metrics.get("population_stable")
+            if stable_flag is not None and float(stable_flag) < 1.0:
+                return False
+
+        snapshot = metrics.get("population_snapshot") or {}
+        coordinator = getattr(self, "population_coordinator", None)
+        if coordinator is not None and isinstance(snapshot, Mapping):
+            stable, details = coordinator.evaluate(snapshot)
+            if not stable:
+                return False
+            species_detail = details.get(species_id)
+            if isinstance(species_detail, Mapping) and not species_detail.get(
+                "within_bounds", True
+            ):
+                return False
+
+        species_catalog = getattr(self, "species_catalog", None) or {}
+        species_cfg = (
+            species_catalog.get(species_id, {})
+            if isinstance(species_catalog, Mapping)
+            else {}
+        )
+        population_cfg = (
+            species_cfg.get("population", {})
+            if isinstance(species_cfg, Mapping)
+            else {}
+        )
+        if population_cfg and isinstance(snapshot, Mapping):
+            species_snapshot = snapshot.get(species_id, {})
+            if isinstance(species_snapshot, Mapping):
+                count = int(species_snapshot.get("count", 0))
+                min_count = population_cfg.get("min_count")
+                max_count = population_cfg.get("max_count")
+                if min_count is not None and count < int(min_count):
+                    return False
+                if max_count is not None and count > int(max_count):
+                    return False
+        return True
 
     def _initialize_lineage_for_episode(self, episode: int) -> None:
         if not self._lineage_enabled():
@@ -612,37 +754,64 @@ class ExperimentCoordinator:
 
         manager = getattr(self, "life_stage_manager", None)
         stage_name = manager.current_stage_name() if manager else None
-        limit = int(
-            self.lineage_config.get("max_ancestors", self._blend_config.max_ancestors)
-        )
-        ancestors = list(
-            self.lineage_archive.iter_records(
-                species=self._lineage_species,
-                stage=stage_name,
-                limit=limit,
+        telemetry = getattr(self, "telemetry_manager", None)
+
+        def _update_telemetry(
+            label: str,
+            species_id: Optional[str],
+            outcome: Optional[BlendOutcome],
+        ) -> None:
+            if not outcome or not telemetry or not hasattr(telemetry, "update_lineage"):
+                return
+            payload = outcome.as_dict()
+            telemetry.update_lineage(label, payload, species_id=species_id)
+
+        def _blend_target(
+            target,
+            *,
+            label: str,
+            species_id: Optional[str],
+            viability_model=None,
+            safety_network=None,
+        ) -> None:
+            if target is None:
+                return
+            blend_config = self._resolve_blend_config(species_id)
+            ancestors = self._select_lineage_ancestors(
+                species_id=species_id,
+                stage_name=stage_name,
+                limit=blend_config.max_ancestors,
             )
-        )
-        if not ancestors:
-            ancestors = list(
-                self.lineage_archive.iter_records(
-                    species=self._lineage_species,
-                    limit=limit,
-                )
+            if not ancestors:
+                return
+            outcome = self.lineage_blender.blend_agent(
+                agent=target,
+                viability_model=viability_model,
+                safety_network=safety_network,
+                ancestors=ancestors,
+                config=blend_config,
             )
-        if not ancestors:
-            return
+            _update_telemetry(label, species_id, outcome)
 
         agent = getattr(self, "agent", None)
-        if agent is None:
-            return
+        if agent is not None:
+            _blend_target(
+                agent,
+                label="agent",
+                species_id=self._lineage_species,
+                viability_model=getattr(self, "viability_approximator", None),
+                safety_network=getattr(self, "safety_network", None),
+            )
 
-        self.lineage_blender.blend_agent(
-            agent=agent,
-            viability_model=getattr(self, "viability_approximator", None),
-            safety_network=getattr(self, "safety_network", None),
-            ancestors=ancestors,
-            config=self._blend_config,
-        )
+        policies = getattr(self, "policies", None)
+        if isinstance(policies, Mapping):
+            for policy_name, policy in policies.items():
+                species_id = self._resolve_policy_species(policy_name)
+                _blend_target(
+                    policy,
+                    label=f"policy:{policy_name}",
+                    species_id=species_id,
+                )
 
     def _archive_lineage_snapshot(
         self,

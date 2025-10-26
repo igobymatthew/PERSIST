@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Tuple
 
 import torch
 
@@ -17,6 +17,26 @@ class BlendConfig:
     alpha: float = 0.5
     lora_rank: int = 8
     max_ancestors: int = 3
+
+
+@dataclass
+class BlendOutcome:
+    """Summary statistics describing the applied lineage blend."""
+
+    alpha: float
+    lora_rank: int
+    ancestors_used: int
+    delta_norms: Dict[str, float]
+
+    def as_dict(self) -> Dict[str, float]:
+        payload: Dict[str, float] = {
+            "alpha": float(self.alpha),
+            "lora_rank": float(self.lora_rank),
+            "ancestors": float(self.ancestors_used),
+        }
+        for component, value in self.delta_norms.items():
+            payload[f"{component}_delta_norm"] = float(value)
+        return payload
 
 
 class LineageBlender:
@@ -36,15 +56,15 @@ class LineageBlender:
         safety_network: Optional[torch.nn.Module],
         ancestors: Iterable[LineageRecord],
         config: BlendConfig,
-    ) -> None:
+    ) -> Optional[BlendOutcome]:
         """Blend lineage knowledge directly into the provided agent."""
 
         ancestors = list(ancestors)
         if not ancestors:
-            return
+            return None
 
         policy_state = agent.get_state()
-        blended_policy = self._blend_state_dict(
+        blended_policy, used_policy, policy_delta = self._blend_state_dict(
             base_state=policy_state,
             ancestors=[
                 record.policy_state for record in ancestors if record.policy_state
@@ -58,6 +78,11 @@ class LineageBlender:
             # Reset optimizers; new lineage should start with fresh momentum.
             agent.load_optimizer_state({})
 
+        delta_norms: Dict[str, float] = {}
+        ancestors_used = used_policy
+        if policy_delta is not None:
+            delta_norms["policy"] = policy_delta
+
         if viability_model is not None:
             viability_state = viability_model.state_dict()
             ancestor_viability = [
@@ -65,13 +90,16 @@ class LineageBlender:
                 for record in ancestors
                 if record.viability_state is not None
             ]
-            blended_viability = self._blend_state_dict(
+            blended_viability, used_viability, viability_delta = self._blend_state_dict(
                 base_state=viability_state,
                 ancestors=ancestor_viability,
                 fisher_masks=[record.fisher_mask for record in ancestors],
                 config=config,
             )
             viability_model.load_state_dict(blended_viability)
+            ancestors_used = max(ancestors_used, used_viability)
+            if viability_delta is not None:
+                delta_norms["viability"] = viability_delta
 
         if safety_network is not None:
             safety_state = safety_network.state_dict()
@@ -81,13 +109,16 @@ class LineageBlender:
                 if record.safety_state is not None
             ]
             if ancestor_safety:
-                blended_safety = self._blend_state_dict(
+                blended_safety, used_safety, safety_delta = self._blend_state_dict(
                     base_state=safety_state,
                     ancestors=ancestor_safety,
                     fisher_masks=[record.fisher_mask for record in ancestors],
                     config=config,
                 )
                 safety_network.load_state_dict(blended_safety)
+                ancestors_used = max(ancestors_used, used_safety)
+                if safety_delta is not None:
+                    delta_norms["safety"] = safety_delta
 
         affect_buffer = getattr(agent, "affect_buffer", None)
         if affect_buffer is not None:
@@ -96,6 +127,13 @@ class LineageBlender:
                     continue
                 self._load_affect_state(affect_buffer, record.affect_state)
                 break  # Only hydrate from the most recent compatible snapshot.
+
+        return BlendOutcome(
+            alpha=float(config.alpha),
+            lora_rank=int(config.lora_rank),
+            ancestors_used=int(ancestors_used),
+            delta_norms=delta_norms,
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -107,7 +145,7 @@ class LineageBlender:
         ancestors: Iterable[Optional[Dict[str, torch.Tensor]]],
         fisher_masks: Iterable[Optional[Dict[str, torch.Tensor]]],
         config: BlendConfig,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> Tuple[Dict[str, torch.Tensor], int, Optional[float]]:
         state = {name: tensor.clone() for name, tensor in base_state.items()}
         alpha = float(config.alpha)
         rank = max(1, int(config.lora_rank))
@@ -119,7 +157,7 @@ class LineageBlender:
         ][: config.max_ancestors]
 
         if not paired:
-            return state
+            return state, 0, None
 
         for ancestor_state, mask in paired:
             for name, tensor in ancestor_state.items():
@@ -136,7 +174,8 @@ class LineageBlender:
                     mask_tensor = mask[name].to(delta.device)
                     delta = delta * (1.0 / (1.0 + mask_tensor))
                 state[name] = base_tensor + alpha * delta
-        return state
+        delta_norm = self._state_delta_norm(base_state, state)
+        return state, len(paired), delta_norm
 
     def _compute_lora_delta(
         self,
@@ -160,6 +199,19 @@ class LineageBlender:
         s_r = s[:effective_rank]
         vh_r = vh[:effective_rank, :]
         return (u_r * s_r) @ vh_r
+
+    def _state_delta_norm(
+        self,
+        base_state: Dict[str, torch.Tensor],
+        new_state: Dict[str, torch.Tensor],
+    ) -> float:
+        total = 0.0
+        for name, base_tensor in base_state.items():
+            if name not in new_state:
+                continue
+            diff = new_state[name] - base_tensor
+            total += torch.linalg.norm(diff).item() ** 2
+        return total**0.5
 
     def _load_affect_state(self, buffer, state: Dict[str, torch.Tensor]) -> None:
         if hasattr(buffer, "load_state_dict"):

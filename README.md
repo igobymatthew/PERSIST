@@ -75,6 +75,9 @@ The roadmap documents how growth-inspired systems land in the stack:
 - [docs/changelog.md](docs/changelog.md): full historical progress timeline.
 
 ### Progress Updates
+* **2025-10-27T22:15:00+00:00**: Automated lineage resilience sweeps and telemetry deltas.
+  * Added a `TMWRecoveryBenchmark` harness to sweep LoRA ranks and ancestor budgets across seeds, aggregating recovery gains directly from scenario definitions.
+  * Threaded biodiversity-aware lineage selection and lineage delta gauges into the coordinator/telemetry stack so respawns respect species constraints and expose live blend metrics.
 * **2025-10-27T16:30:00+00:00**: Modularized onboarding docs and relocated deep dives.
   * Rebuilt the README around overview, quickstart, and configuration maps so newcomers can stand up experiments without sifting through theoretical derivations.
   * Added `docs/changelog.md` for the full progress journal and `docs/multiagent.md` for cooperative/competitive walkthroughs, keeping deep content a click away while preserving navigability.

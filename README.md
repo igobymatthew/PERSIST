@@ -1,5 +1,5 @@
 # PERSIST
-A ml/ai framework for persistence. 
+An experimental ai framework for persistence. 
 Here’s a minimal-but-complete framework you can implement. It fuses (1) explicit homeostasis, (2) a viability kernel/shield, and (3) intrinsic persistence (empowerment or surprise minimization) on top of ordinary task reward.
 ---
 Philosophical Foundations
